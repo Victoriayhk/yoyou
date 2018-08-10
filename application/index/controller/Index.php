@@ -1,5 +1,6 @@
 <?php
 namespace app\index\controller;
+use phpmailer\Phpmailer;
 
 class Index
 {
@@ -28,8 +29,26 @@ class Index
     }
     public function get_name()
     {       
- 
+        
+    }
 
+    public function send_email_plugin()
+    {
+        $address = "675314520@qq.com";
+        $title = "hello";
+        $message = "msg";
+        $Email = new Phpmailer();
+        $Email->IsSMTP();
+        $Email->CharSet = 'UTF-8';
+        $Email->AddAddress($address);
+        $Email->Body = $message;
+        $Email->From = "yexuechao_914@163.com";
+        $Email->FromName = "悠邮";
+        $Email->Subject = $title;
+        $Email->Host = "smtp.163.com";
+        $Email->SMTPAuth = true;
+        $Email->Username = "yexuechao_914@163.com";
+        $Email->Password = "yxc30718";
     }
 
     public function is_registered()

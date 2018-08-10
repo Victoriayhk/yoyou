@@ -32,6 +32,20 @@ class Index
         
     }
 
+    /**
+     * tp5邮件
+     * @param
+     * @author staitc7 <static7@qq.com>
+     * @return mixed
+     */
+    public function email() {
+        $toemail='675314520@qq.com';
+        $name='你好';
+        $subject='QQ邮件发送测试';
+        $content='恭喜你，邮件测试成功。';
+        dump(send_mail($toemail,$name,$subject,$content));
+    }
+
     public function send_email_plugin()
     {
         $address = "675314520@qq.com";

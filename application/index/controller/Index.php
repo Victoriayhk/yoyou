@@ -18,7 +18,7 @@ class Index
     }
     public function get_name()
     {       
-        $str = {"data":[{"name":"yxc","url":"www.hahaha.com"},{"name":"yxc2","url":"wwwss"}],"code":0,"message":"very good"};
+        $str = '{"data":[{"name":"yxc","url":"www.hahaha.com"},{"name":"yxc2","url":"wwwss"}],"code":0,"message":"very good"}';
         $res2 = json_decode($str);
         var_dump($res2);
     }

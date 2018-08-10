@@ -21,6 +21,13 @@ class Index
         $str = '{"data":[{"name":"yxc","url":"www.hahaha.com"},{"name":"yxc2","url":"wwwss"}],"code":0,"message":"very good"}';
         $res2 = json_decode($str);
         var_dump($res2);
+        echo "code : ";
+        echo $res2["message"];
+        echo "\n";
+        echo $res2["data"][0]["name"];
+        echo "\n";
+        echo $res2["data"][0]["url"];
+
     }
 
     public function is_registered(){

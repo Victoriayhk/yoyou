@@ -29,10 +29,11 @@ class Index
     public function get_name()
     {       
  
-        
+
     }
 
-    public function is_registered(){
+    public function is_registered()
+    {
         $arr = json_decode($_GET['data'], true);
         $res = \think\Db::table('t_user')->where('vuid', $arr["vuid"]);
         if ($res != null)
@@ -61,7 +62,6 @@ class Index
         return json($retjson);
     }
 
-    public function check_
 }
 
 

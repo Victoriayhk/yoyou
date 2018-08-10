@@ -18,7 +18,13 @@ class Index
     }
     public function get_name()
     {       
-        echo "haha";
+        $str = {"data":[{"name":"yxc","url":"www.hahaha.com"},{"name":"yxc2","url":"wwwss"}],"code":0,"message":"very good"};
+        $res2 = json_decode($str);
+        var_dump($res2);
+    }
+
+    public function is_registered(){
+
     }
     
 }

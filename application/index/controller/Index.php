@@ -1,7 +1,7 @@
 <?php
 namespace app\index\controller;
-use phpmailer\Phpmailer;
-
+//`use PHPMailer\PHPMailer\PHPMailer;
+//use PHPMailer\PHPMailer\Exception;
 class Index
 {
     public function index()
@@ -42,7 +42,7 @@ class Index
         $toemail='675314520@qq.com';
         $name='你好';
         $subject='QQ邮件发送测试';
-        $content='恭喜你，邮件测试成功。';
+        $content="恭喜你，邮件测试成功.<b>您的验证码是：123456</b>";
         dump(send_mail($toemail,$name,$subject,$content));
     }
 
@@ -51,8 +51,9 @@ class Index
         $address = "675314520@qq.com";
         $title = "hello";
         $message = "msg";
-        $Email = new Phpmailer();
-        $Email->IsSMTP();
+        //$Email = new PHPMailer();
+        return \Email::send();
+        /**$Email->IsSMTP();
         $Email->CharSet = 'UTF-8';
         $Email->AddAddress($address);
         $Email->Body = $message;
@@ -62,7 +63,7 @@ class Index
         $Email->Host = "smtp.163.com";
         $Email->SMTPAuth = true;
         $Email->Username = "yexuechao_914@163.com";
-        $Email->Password = "yxc30718";
+        $Email->Password = "yxc30718";*/
     }
 
     public function is_registered()

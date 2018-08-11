@@ -162,14 +162,65 @@ class Index
         }
         else
         {
+            // 随机得到arrive_time, 在预期到达时间左右
             $expect_second = $res['expect_time'] * 24 * 60 * 60;
-            $min_day = $expect_second - 3 * 24 * 60 * 60;
-            $max_day = $expect_second + 3 * 24 * 60 * 60;
-            $valid_time = mt_rand($min_day, $max_day);
-            $sum_time = $pub_time + $valid_time;
+            $eps_second = intval(ceil($expect_second * 0.2 * (1.0 - $expect_time * 0.002)))
+            $min_second = $expect_second - $eps_second;
+            $max_second = $expect_second + $eps_second;
+            $valid_time = mt_rand($min_second, $max_second);
+            $arrive_time = $pub_time + $valid_time;
 
-            // 随机状态出来
+            // mail加到数据库
+            $mail['user_id'] = $user_id;
+            $mail['poster_id'] = $poster_id;
+            $mail['email'] = $friend_email;
+            $mail['pub_time'] = $pub_time;
+            $mail['arrive_time'] = $arrive_time;
+            $ret = \think::Db::table('t_mail')->add($mail);
+            if ($ret != 0)
+            {
+                $retjson['errno'] = 插入数据失败;
+            }
+            $mail_id = \think\Db::table('t_mail')->getLastInsID();
 
+            // 状态描述
+            define('COMMON_MAIL_STATES_DESCRIBE',[
+                '遇到暴风雨只能小步伐前进了',
+                '在森林里迷路了, 但愿信使能找到路',
+                '天气晴朗, 还搭上了好友的顺风快车',
+                '信件被污损了, 还好遇到李师傅, 李师傅在故宫修过文物',
+                '路漫漫其修远兮,吾将上下而求索',
+                '胜利就在眼前, 信使加快了前进的步伐']);
+
+            // 随机mail状态序列
+            $num_state = 0;
+            $point_time = $pub_time;
+            $min_during_time = 24 * 60 * 60;
+            $max_during_time = intval($expect_second * 0.5);
+            $mail_state['mail_id'] = $mail_id;
+            while ($point_time < $arrive_time)
+            {
+                $mail_state['start_time'] = $point_time;
+                $during_time = mt_rand($min_during_time, $max_during_time);
+                if ($point_time + $during_time + 24 * 60 * 60 > $arrive_time)
+                {
+                    $mail_state['end_time'] = $arrive_time;
+                    $mail_state['description'] = end($COMMON_MAIL_STATES_DESCRIBE);
+                } else
+                {     
+                    $mail_state['end_time'] = $point_time + $during_time;
+                    $mail_state['description'] = array_rand($COMMON_MAIL_STATES_DESCRIBE);
+                }
+
+                $ret = \think\Db::table('t_mail_state')->insert($mail_state);
+                if (!$ret)
+                {
+                    $retjson['errno'] = insert失败;
+                    return json($retjson);
+                }
+
+                $point_time = $mail_state['end_time'] + 1;
+            }
             $retjson['errno'] = 0;
         }
         return json($retjson);
@@ -229,6 +280,8 @@ class Index
             $mail_to_state[$mail_id][$mstate_id]['start_time'] = $all_mail_state[$i]['start_time'];
             $mail_to_state[$mail_id][$mstate_id]['end_time'] = $all_mail_state[$i]['end_time'];
             $mail_to_state[$mail_id][$mstate_id]['description'] = $all_mail_state[$i]['description'];
+            $mail_to_state[$mail_id][$mstate_id]['mood'] = $all_mail_state[$i]['mood'];
+            $mail_to_state[$mail_id][$mstate_id]['mood_time'] = $all_mail_state[$i]['mood_time'];
         }
 
         
@@ -245,25 +298,274 @@ class Index
                 $mail['arrive_time'] = $res[$i]['arrive_time'];
                 $mail['is_read'] = $res[$i]['is_read'];
                 
-            if ($res[$i]['is_read'] == 0 && $res[$i]['arrive_time'] >= time())
+            if ($res[$i]['is_read'] == 0 && $res[$i]['arrive_time'] <= time())
             {
                 // 未读最前
+                array_push($retjson['data']['arrived_unread_mail'], $mail);
+            }
+            else if ($res[$i]['arrive_time'] > time())
+            {
+                // 未到
+                foreach ($mail_to_state[$mail['mail_id']] as $key => $value)
+                {
+                    $now = time();
+                    if ($now < $value['end_time'] && $now >= $value['start_time'])
+                    {
+                        $mail['poster_status'] = $value['description'];
+                        $mail['poster_status_stime'] = $value['start_time'];
+                        $mail['poster_status_etime'] = $value['end_time'];
+                        $mail['mood'] = $value['mood'];
+                        $mail['mood_time'] = $value['mood_time'];
+                        break;
+                    }
+                }
+                array_push($retjson['data']['unarrived_mail'], $mail);
             }
             else
             {
-                // 未到
-                foreach ($mail_to_state as $key => $value)
-                {
-                    
-                }
-
+                // 已读
+                array_push($retjson['data']['arrived_read_mail'], $mail);
             }
         }
+
+        $retjson['errno'] = 0;
+        return json($retjson);
         
 
-        // 已读
-
     }
+
+    public function get_send_mail()
+    {
+        $arr = json_decode($_GET['data'], true);
+        $mail_id = $arr['mail_id'];
+
+        $poster_res = \think\Db::table('t_poster')->select();
+        for ($i = 0; $i < count($poster_res); $i++)
+        {
+            $poster_arr[$poster_res[$i]['poster_id']] = $poster_res[$i]['poster_url'];
+        }
+
+        $address_res = \think\Db::table('t_address')->select();
+        for ($i = 0; $i < count($address_res); $i++)
+        {
+            $address_arr[$address_res[$i]['address_id']] = $address_res[$i]['addr'];
+        }
+
+        $res = \think\Db::table('t_mail')->where("mail_id", $mail_id)->find();
+        $retjson['data']['user_id'] = $res['user_id'];
+        $retjson['data']['mail_id'] = $res['mail_id'];
+        $retjson['data']['poster_url'] = $poster_arr[$res['poster_id']];
+        $retjson['data']['friend_name'] = $res['friend_name'];
+        $retjson['data']['friend_addr'] = $address_arr[$res['address_id']];
+        $retjson['data']['arrived_time'] = $res['arrived_time'];
+        $retjson['data']['create_time'] = $res['pub_time'];
+        $retjson['data']['content'] = $res['content'];
+        // 
+        $mail_state = \think\Db::table("t_mail_state")->where('mail_id', $res['mail_id'])->select();
+        $state = array();
+
+        for ($i = 0; $i < count($mail_state); $i++)
+        {
+            $mstate_id = $mail_state[$i]['mstate_id'];
+            $state[$mstate_id]['mstate_id'] = $mstate_id;
+            $state[$mstate_id]['mail_id'] = $mail_state[$i]['mail_id'];
+            $state[$mstate_id]['start_time'] = $mail_state[$i]['start_time'];
+            $state[$mstate_id]['end_time'] = $mail_state[$i]['end_time'];
+            $state[$mstate_id]['description'] = $mail_state[$i]['description'];
+            $state[$mstate_id]['mood'] = $mail_state[$i]['mood'];
+            $state[$mstate_id]['mood_time'] = $mail_state[$i]['mood_time'];
+        }
+        if ($res['arrived_time'] > time())
+        {
+            // 未送到
+            foreach ($state as $key => $value)
+            {
+                $now = time();
+                if ($now < $value['end_time'] && $now >= $value['start_time'])
+                {
+                    $retjson['data']['poster_status'] = $value['description'];
+                    $retjson['data']['poster_status_stime'] = $value['start_time'];
+                    $retjson['data']['poster_status_etime'] = $value['end_time'];
+                    $retjson['data']['mood'] = $value['mood'];
+                    $retjson['data']['mood_time'] = $value['mood_time'];
+                    break;
+                }
+            }
+        }
+        else
+        {
+            // 已送到
+            ksort($state);
+            $time_line = array();
+            foreach ($state as $key => $value)
+            {
+                $one_state['poster_status'] = $value['description'];
+                $one_state['poster_status_stime'] = $value['start_time'];
+                $one_state['poster_status_etime'] = $value['end_time'];
+                $one_state['mood'] = $value['mood'];
+                $one_state['mood_time'] = $value['mood_time'];
+                array_push($time_line, $one_state);
+            }
+            $retjson['data']['time_line'] = $time_line;
+        }
+        $retjson['errno'] = 0;
+        return json($retjson);
+    }
+
+    public function get_all_receive_mail()
+    {
+        $arr = json_decode($_GET['data'], true);
+        $user_id = $arr['user_id'];
+        $res = \think\Db::table("t_user")->where('user_id', $user_id)->find();
+
+        $poster_res = \think\Db::table('t_poster')->select();
+        for ($i = 0; $i < count($poster_res); $i++)
+        {
+            $poster_arr[$poster_res[$i]['poster_id']] = $poster_res[$i]['poster_url'];
+        }
+
+        $email = $res['email'];
+        $mail_data = \think\Db::table("t_mail")->where('friend_email', $email)->select();
+        $arr_friend_id = array();
+        for ($i = 0; $i < count($mail_data); $i++)
+        {
+            array_push($arr_friend_id, $mail_data[$i]['user_id']);
+        }
+
+        $arr_user_info = \think\Db::table("t_user")->whereIn('user_id', $arr_friend_id)->select();
+        $user_info_by_id = array();
+        for ($i = 0; $i < count($arr_user_info); $i++)
+        {
+            $tmp_user_id = $arr_user_info[$i]['user_id'];
+            $user_info_by_id[$tmp_user_id]['user_id'] = $arr_user_info[$i]['user_id'];
+            $user_info_by_id[$tmp_user_id]['user_name'] = $arr_user_info[$i]['user_name'];
+            $user_info_by_id[$tmp_user_id]['email'] = $arr_user_info[$i]['email'];
+            $user_info_by_id[$tmp_user_id]['user_img'] = $arr_user_info[$i]['user_img'];
+        }
+
+        for($i = 0; $i < count($mail_data); $i++)
+        {
+            $friend_id = $mail_data[$i]['user_id'];
+            $one_mail = array();
+            $one_mail['friend_user_id'] = $friend_id;
+            $one_mail['friend_name'] = $user_info_by_id[$friend_id]['user_name'];
+            $one_mail['friend_email'] = $user_info_by_id[$friend_id]['email'];
+            $one_mail['user_img'] = $user_info_by_id[$friend_id]['user_img'];
+            $one_mail['arrived_time'] = $mail_data[$i]['arrived_time'];
+            $one_mail['create_time'] = $mail_data[$i]['pub_time'];
+            $one_mail['is_read'] = $mail_data[$i]['is_read'];
+            $one_mail['poster_url'] = $poster_arr[$mail_data['poster_id']];
+            array_push($retjson['data'], $one_mail);
+        }
+        return json($retjson);
+    }
+
+    public function append_mail()
+    {
+        $arr = json_decode($_GET['data'], true);
+        $mail_id = $arr['mail_id'];
+        $mood = $arr['mood'];
+
+        // 找到当前时间所在的mail_state
+        $cur_time = time()
+        $where_condition['mail_id'] = $mail_id;
+        $where_condition['_string'] = 'mstate_start_time <= '$cur_time' AND '$cur_time' <= mstate_end_time';
+        $mail_state = \think\Db::table("t_mail_state")->where($where_condition)->find();
+
+        // 没有对应的mail_state
+        if ($mail_state == null)
+        {
+            // 奇怪的事情发生了
+            $retjson['errno'] = 这里是找到没有对应的mail_state的出错;
+            return $retjson
+        }
+        
+        // update对应的mood
+        $data['mood'] = $mood;
+        $data['mood_time'] = $cur_time;
+        $ret = \think\Db::table("t_mail_state")->where('mstate_id', $mail_state['mstate_id'])->save($data);
+
+        if (!$res)
+        {
+            $retjson['errno'] = 4000;
+        }
+        return $retjson;
+    }
+
+    public function get_receive_mail
+    {
+        $arr = json_decode($_GET['data'], true);
+        $mail_id = $arr['mail_id'];
+        $poster_res = \think\Db::table('t_poster')->select();
+        for ($i = 0; $i < count($poster_res); $i++)
+        {
+            $poster_arr[$poster_res[$i]['poster_id']] = $poster_res[$i]['poster_url'];
+        }
+
+        $address_res = \think\Db::table('t_address')->select();
+        for ($i = 0; $i < count($address_res); $i++)
+        {
+            $address_arr[$address_res[$i]['address_id']] = $address_res[$i]['addr'];
+        }
+
+
+
+        $res = \think\Db::table('t_mail')->where("mail_id", $mail_id)->find();
+        $user_info = \think\Db::table("t_user")->where('user_id', $res['user_id'])->find();
+
+        $retjson['data']['user_id'] = $res['user_id'];
+        $retjson['data']['mail_id'] = $res['mail_id'];
+        $retjson['data']['poster_url'] = $poster_arr[$res['poster_id']];
+        $retjson['data']['friend_name'] = $user_info['user_name'];
+        $retjson['data']['friend_img'] = $user_info['user_img'];
+        $retjson['data']['friend_email'] = $user_info['email'];
+        $retjson['data']['arrived_time'] = $res['arrived_time'];
+        $retjson['data']['create_time'] = $res['pub_time'];
+        $retjson['data']['content'] = $res['content'];
+        $retjson['data']['is_read'] = $res['is_read'];
+
+        $mail_state = \think\Db::table("t_mail_state")->where('mail_id', $res['mail_id'])->select();
+        $state = array();
+        for ($i = 0; $i < count($mail_state); $i++)
+        {
+            $mstate_id = $mail_state[$i]['mstate_id'];
+            $state[$mstate_id]['mstate_id'] = $mstate_id;
+            $state[$mstate_id]['mail_id'] = $mail_state[$i]['mail_id'];
+            $state[$mstate_id]['start_time'] = $mail_state[$i]['start_time'];
+            $state[$mstate_id]['end_time'] = $mail_state[$i]['end_time'];
+            $state[$mstate_id]['description'] = $mail_state[$i]['description'];
+            $state[$mstate_id]['mood'] = $mail_state[$i]['mood'];
+            $state[$mstate_id]['mood_time'] = $mail_state[$i]['mood_time'];
+        }        
+        ksort($state);
+        $time_line = array();
+        foreach ($state as $key => $value)
+        {
+            $one_state['poster_status'] = $value['description'];
+            $one_state['poster_status_stime'] = $value['start_time'];
+            $one_state['poster_status_etime'] = $value['end_time'];
+            $one_state['mood'] = $value['mood'];
+            $one_state['mood_time'] = $value['mood_time'];
+            array_push($time_line, $one_state);
+        }
+        $retjson['data']['time_line'] = $time_line;
+
+        if ($res['is_read'] == 0)
+        {
+            // update
+            $updateres = \think\Db::table("t_mail")->where('mail_id', $res['mail_id'])->update(['is_read' => 1]);
+            if ($updateres == 0)
+            {
+                $retjson['data'] = null;
+                $retjson['errno'] = 4001;
+                return json($retjson);
+            }
+        }
+
+        $retjson['errno'] = 0;
+        return json($retjson);
+    } 
+
 }
 
 

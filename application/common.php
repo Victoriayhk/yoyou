@@ -45,5 +45,6 @@ function send_mail($tomail, $name, $subject = '', $body = '', $attachment = null
             is_file($file) && $mail->AddAttachment($file);
         }
     }
-    return $mail->Send() ? true : $mail->ErrorInfo;
+    // return $mail->Send() ? true : $mail->ErrorInfo;
+    return $mail->Send() ? 0 : 1;
 }

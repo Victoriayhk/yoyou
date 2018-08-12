@@ -5,12 +5,12 @@ class Index
 {
     public function index()
     {
-	echo "aaa";
+	    echo "aaa";
     }
     public function hello()
     {
         $res = \think\Db::table('t_user')->select();
-	//var_dump($res);
+	    var_dump($res);
     	$data[0] = ['name'=>'yxc', 'url'=>'www.hahaha.com'];
     	$data[1] = ['name'=>'yxc2', 'url'=>'wwwss'];
     	$res = ['data'=>$data, 'code'=>0, 'message'=>'very good'];
@@ -26,11 +26,6 @@ class Index
         echo $res2["data"][0]["url"];
     	return json($res);
     }
-    public function get_name()
-    {       
-        
-    }
-
     /**
      * tp5邮件
      * @param
@@ -49,7 +44,7 @@ class Index
     public function is_registered()
     {
         $arr = json_decode($_GET['data'], true);
-        $res = \think\Db::table('t_user')->where('vuid', $arr["vuid"]);
+        $res = \think\Db::table('t_user')->where('vuid', $arr["vuid"])->find();
         if ($res != null)
         {
             $retjson["errno"] = 0;
@@ -66,16 +61,18 @@ class Index
         return json($retjson);
 
     }
+    
     public function get_verification_code()
     {
+        $retjson['errno'] = 0;
         $arr = json_decode($_GET['data'], true);
         $email = $arr["email"];
         $vuid = $arr["vuid"];
         // 发邮件操作
-        $random_code = get_random_code();
-        Session::set($vuid."random_code", $random_code);
-        Session::set($vuid."random_code_timestamp", time());
-        $retjson["errno"] = email($email, $random_code);
+        $random_code = $this->get_random_code();
+        \think\Session::set($vuid."random_code", $random_code);
+        \think\Session::set($vuid."random_code_timestamp", time());
+        $retjson["errno"] = $this->email($email, $random_code);
         return json($retjson);
     }
 
@@ -92,14 +89,13 @@ class Index
         $vuid = $arr["vuid"];
         $email = $arr["email"];
         $check_code = $arr["check_code"];
-        $user_img = $arr["user_img"];
-        $user_name = $arr["user_name"];
-
+        /*$user_img = $arr["user_img"];
+        $user_name = $arr["user_name"];*/
         // yanzheng
-        if (Session::has($vuid."random_code") && Session::get($vuid."random_code") == $check_code)
+        if (\think\Session::has($vuid."random_code") && \think\Session::get($vuid."random_code") == $check_code)
         {
             // db
-            Session::delete($vuid."random_code");
+            \think\Session::delete($vuid."random_code");
             $data = ['user_name' => $user_name, 'user_img' => $user_img, 'email' => $email];
             $res = \think\Db::table('t_user')->insert($data);
             if ($res != 1)
@@ -115,13 +111,13 @@ class Index
         }
         else
         {
-            $retjson['errno'] = 1001;
+            echo $retjson['errno'] = 1001;
         }
         return json($retjson);
 
     }
 
-    public function get_addr_and_poster()
+    public function get_poster()
     {
         $retjson['errno'] = 0;
         $res = \think\Db::table('t_poster')->select();
@@ -133,18 +129,23 @@ class Index
             $retjson['data']['poster'][$i]['poster_name'] = $res[$i]['poster_name'];
         }
 
+        return json($retjson);
+
+    }
+
+    public function get_addr()
+    {   
+        $retjson['errno'] = 0;
         $res = \think\Db::table('t_address')->select();
         for ($i = 0; $i < count($res); $i++)
         {
             $retjson['data']['address'][$i]['address_id'] = $res[$i]['address_id'];
             $retjson['data']['address'][$i]['address'] = $res[$i]['addr'];
         }
-
         return json($retjson);
-
     }
 
-    public function commit_mail()
+    /**public function commit_mail()
     {
         $arr = json_decode($_GET['data'], true);
         $user_id = $arr["user_id"];
@@ -230,7 +231,7 @@ class Index
         }
         return json($retjson);
 
-    }
+    }*/
 
     public function upload_image()
     {
@@ -272,7 +273,7 @@ class Index
         $all_mail_id = array();
         for ($i = 0; $i < count ($res); $i++)
         {
-            array_push($all_mail_id, $res[$i]['mail_id'])
+            array_push($all_mail_id, $res[$i]['mail_id']);
         }
         $all_mail_state = \think\Db::table("t_mail_state")->whereIn('mail_id', $all_mail_id)->select();
         $mail_to_state = array();
@@ -288,29 +289,34 @@ class Index
             $mail_to_state[$mail_id][$mstate_id]['mood'] = $all_mail_state[$i]['mood'];
             $mail_to_state[$mail_id][$mstate_id]['mood_time'] = $all_mail_state[$i]['mood_time'];
         }
-
         
-
+        $retjson['data']['arrived_unread_mail'] = array();
+        $retjson['data']['unarrived_mail'] = array();
+        $retjson['data']['arrived_read_mail'] = array();
+        //var_dump($poster_arr);
         for ($i = 0; $i < count($res); $i++)
-        {
-                $mail['mail_id'] = $res[$i]['mail_id'];
-                $mail['user_id'] = $res[$i]['user_id'];
-                $poster_id = $res[$i]['poster_id'];
-                $mail['poster_url'] = $poster_res[$poster_id];
-                $mail['friend_name'] = $res[$i]['friend_name'];
-                $mail['friend_email'] = $res[$i]['friend_email'];
-                $mail['create_time'] = $res[$i]['pub_time'];
-                $mail['arrive_time'] = $res[$i]['arrive_time'];
-                $mail['is_read'] = $res[$i]['is_read'];
+        {   
+            $mail = array();
+            $mail['mail_id'] = $res[$i]['mail_id'];
+            $mail['user_id'] = $res[$i]['user_id'];
+            $poster_id = $res[$i]['poster_id'];
+            $mail['poster_url'] = $poster_arr[$poster_id];
+            $mail['friend_name'] = $res[$i]['friend_name'];
+            $mail['friend_email'] = $res[$i]['email'];
+            $mail['create_time'] = $res[$i]['pub_time'];
+            $mail['arrive_time'] = $res[$i]['arrive_time'];
+            $mail['is_read'] = $res[$i]['is_read'];
                 
             if ($res[$i]['is_read'] == 0 && $res[$i]['arrive_time'] <= time())
             {
                 // 未读最前
+                //echo "arrived_unread:". $res[$i]['mail_id']."\n";
                 array_push($retjson['data']['arrived_unread_mail'], $mail);
             }
             else if ($res[$i]['arrive_time'] > time())
             {
                 // 未到
+                //echo "unarrived :" . $res[$i]['mail_id'] . "\n";
                 foreach ($mail_to_state[$mail['mail_id']] as $key => $value)
                 {
                     $now = time();
@@ -329,14 +335,29 @@ class Index
             else
             {
                 // 已读
+                //echo "arrived_read :" . $res[$i]['mail_id'] . "\n";
                 array_push($retjson['data']['arrived_read_mail'], $mail);
             }
         }
-
+        
+        if (!empty($retjson['data']['unarrived_unread_mail'])){
+            $sort_val = array_column($retjson['data']['arrived_unread_mail'], 'arrive_time');
+            array_multisort($sort_val, SORT_DESC, $retjson['data']['arrived_unread_mail']);
+        
+        }
+        if (!empty($retjson['data']['unarrived_mail']))
+        {
+            $sort_val = array_column($retjson['data']['unarrived_mail'], 'create_time');
+            array_multisort($sort_val, SORT_ASC, $retjson['data']['unarrived_mail']);
+        }
+        if (!empty($retjson['data']['arrived_read_mail']))
+        {
+            $sort_val = array_column($retjson['data']['arrived_read_mail'], 'arrive_time');
+            array_multisort($sort_val, SORT_DESC, $retjson['data']['arrived_read_mail']);
+        }
+        
         $retjson['errno'] = 0;
         return json($retjson);
-        
-
     }
 
     public function get_send_mail()
@@ -362,9 +383,9 @@ class Index
         $retjson['data']['poster_url'] = $poster_arr[$res['poster_id']];
         $retjson['data']['friend_name'] = $res['friend_name'];
         $retjson['data']['friend_addr'] = $address_arr[$res['address_id']];
-        $retjson['data']['arrived_time'] = $res['arrived_time'];
+        $retjson['data']['arrive_time'] = $res['arrive_time'];
         $retjson['data']['create_time'] = $res['pub_time'];
-        $retjson['data']['content'] = $res['content'];
+        $retjson['data']['content'] = $res['mail_content'];
         // 
         $mail_state = \think\Db::table("t_mail_state")->where('mail_id', $res['mail_id'])->select();
         $state = array();
@@ -380,7 +401,7 @@ class Index
             $state[$mstate_id]['mood'] = $mail_state[$i]['mood'];
             $state[$mstate_id]['mood_time'] = $mail_state[$i]['mood_time'];
         }
-        if ($res['arrived_time'] > time())
+        if ($res['arrive_time'] > time())
         {
             // 未送到
             foreach ($state as $key => $value)
@@ -430,13 +451,14 @@ class Index
         }
 
         $email = $res['email'];
-        $mail_data = \think\Db::table("t_mail")->where('friend_email', $email)->select();
+        $now = time();
+        $mail_data = \think\Db::table("t_mail")->where('email', $email)->where('arrive_time', '<', $now)->select();
         $arr_friend_id = array();
         for ($i = 0; $i < count($mail_data); $i++)
         {
             array_push($arr_friend_id, $mail_data[$i]['user_id']);
         }
-
+        //var_dump($mail_data);
         $arr_user_info = \think\Db::table("t_user")->whereIn('user_id', $arr_friend_id)->select();
         $user_info_by_id = array();
         for ($i = 0; $i < count($arr_user_info); $i++)
@@ -447,7 +469,7 @@ class Index
             $user_info_by_id[$tmp_user_id]['email'] = $arr_user_info[$i]['email'];
             $user_info_by_id[$tmp_user_id]['user_img'] = $arr_user_info[$i]['user_img'];
         }
-
+        $retjson['data'] = array();
         for($i = 0; $i < count($mail_data); $i++)
         {
             $friend_id = $mail_data[$i]['user_id'];
@@ -456,16 +478,20 @@ class Index
             $one_mail['friend_name'] = $user_info_by_id[$friend_id]['user_name'];
             $one_mail['friend_email'] = $user_info_by_id[$friend_id]['email'];
             $one_mail['user_img'] = $user_info_by_id[$friend_id]['user_img'];
-            $one_mail['arrived_time'] = $mail_data[$i]['arrived_time'];
+            $one_mail['arrive_time'] = $mail_data[$i]['arrive_time'];
             $one_mail['create_time'] = $mail_data[$i]['pub_time'];
             $one_mail['is_read'] = $mail_data[$i]['is_read'];
-            $one_mail['poster_url'] = $poster_arr[$mail_data['poster_id']];
+            $one_mail['poster_url'] = $poster_arr[$mail_data[$i]['poster_id']];
             array_push($retjson['data'], $one_mail);
         }
+        
+        $sort_val = array_column($retjson['data'], 'arrive_time');
+        //var_dump($sort_val); 
+        array_multisort($sort_val, SORT_DESC, $retjson['data']);
         return json($retjson);
     }
 
-    public function append_mail()
+   /** public function append_mail()
     {
         $arr = json_decode($_GET['data'], true);
         $mail_id = $arr['mail_id'];
@@ -495,9 +521,9 @@ class Index
             $retjson['errno'] = 4000;
         }
         return $retjson;
-    }
+    }*/
 
-    public function get_receive_mail
+    public function get_receive_mail()
     {
         $arr = json_decode($_GET['data'], true);
         $mail_id = $arr['mail_id'];
@@ -524,9 +550,9 @@ class Index
         $retjson['data']['friend_name'] = $user_info['user_name'];
         $retjson['data']['friend_img'] = $user_info['user_img'];
         $retjson['data']['friend_email'] = $user_info['email'];
-        $retjson['data']['arrived_time'] = $res['arrived_time'];
+        $retjson['data']['arrived_time'] = $res['arrive_time'];
         $retjson['data']['create_time'] = $res['pub_time'];
-        $retjson['data']['content'] = $res['content'];
+        $retjson['data']['content'] = $res['mail_content'];
         $retjson['data']['is_read'] = $res['is_read'];
 
         $mail_state = \think\Db::table("t_mail_state")->where('mail_id', $res['mail_id'])->select();
@@ -555,7 +581,7 @@ class Index
         }
         $retjson['data']['time_line'] = $time_line;
 
-        if ($res['is_read'] == 0)
+       /** if ($res['is_read'] == 0)
         {
             // update
             $updateres = \think\Db::table("t_mail")->where('mail_id', $res['mail_id'])->update(['is_read' => 1]);
@@ -565,16 +591,11 @@ class Index
                 $retjson['errno'] = 4001;
                 return json($retjson);
             }
-        }
+        }*/
 
         $retjson['errno'] = 0;
         return json($retjson);
     } 
 
 }
-
-
-
-
-
 

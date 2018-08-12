@@ -69,38 +69,63 @@ def get_cur_time():
     return int(round(time.mktime(datetime.datetime.now().timetuple())))
 
 
+def dbdata_to_dict(dbdata, attri_name):
+    """type of dbdtat: [[string, string], [], ..., []]"""
+    data = []
+    for dblist in dbdata:
+        item = {}
+        for i in range(len(attri_name)):
+            item[attri_name[i]] = dblist[i]
+        data.append(item)
+    return data
+
+
 def get_unsend_mails(cursor, cur_time):
     """获取所有未发送的mail"""
     # cur_time = int(round(time.mktime(datetime.datetime.now().timetuple())))
+
     sql = """SELECT t_mail.mail_id as mail_id, t_mail.arrive_time as arrive_time FROM t_mail WHERE {} <= t_mail.arrive_time""".format(cur_time)
     cursor.execute(sql)
-    mails = cursor.fetchall()
+    # mails = cursor.fetchall()
+    mails_sql = cursor.fetchall()
+    mails = [{"mail_id": mail_sql[0], "arrive_time": mail_sql[1]} for mail_sql in mails_sql]
     return mails
 
 
 def form_email_content(mail_content, mail_states):
     text = ""
     html = mail_content
+    for state in mail_states:
+        html = html + state['description']
+        if (state['mood'] != None):
+            html = html + '<p>' + state['mood'] + '-- ' + str(state['mood_time']) + '</p>'
     image_url_list = []
     return text, html, image_url_list
 
 
 def parse_mail(cursor, mail_id):
     # 获取mail信息
-    sql = """SELECT * FROM t_mail WHERE mail_id={}""".format(mail_id)
+    mail_need = settings.DB_attri['t_mail']
+    sql = """SELECT {}  FROM t_mail WHERE mail_id={}""".format(','.join(mail_need), mail_id)
     cursor.execute(sql)
-    mail = cursor.fetchall()[0]
+    mails_sql = cursor.fetchall()
+    mail = dbdata_to_dict(mails_sql, mail_need)[0]
+
     logger.info("parse mail: {}".format(mail))
 
     # 获取mail的状态(们), 并按时间顺序排序
-    sql = """SELECT * FROM t_mail_state WHERE mail_id={} ORDER BY start_time DESC""".format(mail_id)
+    mail_state_need = settings.DB_attri['t_mail_state']
+    sql = """SELECT {} FROM t_mail_state WHERE mail_id={} ORDER BY start_time DESC""".format(
+        ','.join(mail_state_need), mail_id)
     cursor.execute(sql)
-    mail_states = cursor.fetchall()
+    mail_states_sql = cursor.fetchall()
+    mail_states = dbdata_to_dict(mail_states_sql, mail_state_need)
+    
     logger.info("parse state: {}".format(mail_states))
 
-    email_to = mail[4]
+    email_to = mail['email']
     subject = settings.standard_email_subject
-    text, html, image_url_list = form_email_content(mail[5], mail_states)
+    text, html, image_url_list = form_email_content(mail['mail_content'], mail_states)
     return email_to, subject, text, html, image_url_list
 
 
@@ -130,9 +155,10 @@ def update_unsend_mails(cursor, mails, cur_time, smtp_password):
 
     """更新未发送mail的状态"""
     for mail in mails:
-        mail_id = mail[0]
-        arrive_time = mail[1]
+        mail_id = mail['mail_id']
+        arrive_time = mail['arrive_time']
         if (arrive_time <= cur_time and arrive_time + MINIMUM_TIME_GRANULARITY > cur_time):
+        # if (arrive_time + MINIMUM_TIME_GRANULARITY > cur_time):
             if send_mail(cursor, mail_id, smtp_password):
                 num_send_out += 1
 

@@ -3,7 +3,7 @@
 # 发送信的最小时间单位粒度, 比如最小粒度是天, 那么系统每隔一天扫描一次未发送的信, 
 # 到了送信时间就送出去
 # 单位: 秒
-MINIMUM_TIME_GRANULARITY = 10
+MINIMUM_TIME_GRANULARITY = 1 * 24 * 60 * 60
 
 DB_config = {
     "host": "127.0.0.1",
@@ -15,9 +15,21 @@ DB_config = {
 
 DB_attri = {
     "table_name": ["t_mail", "t_mail_state"],
-    "t_mail": ["mail_id", "user_id", "address_id", "pub_time", "is_read", "arrive_time", "mail_content", "email"],
-    "t_mail_state": [ "mstate_id", "poster_id", "start_time", "end_time", "description", "mood", "mood_time", "mail_id"],
+    "t_mail": ["mail_id", "user_id", "address_id", "pub_time", "is_read", "arrive_time", "mail_content", "email", "poster_id", "friend_name"],
+    "t_mail_state": [ "mstate_id", "start_time", "end_time", "description", "mood", "mood_time", "mail_id"],
 }
+
+# +-------------+--------------+------+-----+---------+----------------+
+# | Field       | Type         | Null | Key | Default | Extra          |
+# +-------------+--------------+------+-----+---------+----------------+
+# | mstate_id   | int(11)      | NO   | PRI | NULL    | auto_increment |
+# | mail_id     | int(11)      | YES  |     | NULL    |                |
+# | start_time  | int(11)      | YES  |     | NULL    |                |
+# | end_time    | int(11)      | YES  |     | NULL    |                |
+# | mood        | text         | YES  |     | NULL    |                |
+# | mood_time   | int(11)      | YES  |     | NULL    |                |
+# | description | varchar(128) | YES  |     | NULL    |                |
+# +-------------+--------------+------+-----+---------+----------------+
 
 # 邮件服务器设置
 smtp_server = 'smtp.qq.com'

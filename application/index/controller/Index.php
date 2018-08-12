@@ -78,8 +78,7 @@ class Index
         $vuid = $arr["vuid"];
         // 发邮件操作
         $random_code = $this->get_random_code();
-        \think\Cache::set($vuid."random_code", $random_code);
-        \think\Cache::set($vuid."random_code_timestamp", time());
+        \think\Cache::set($vuid."random_code", $random_code， 3600);
         
         $retjson["check_code"] =  \think\Cache::get($vuid."random_code");
         $retjson["errno"] = $this->email($email, $random_code);
@@ -101,11 +100,7 @@ class Index
         $check_code = $arr["check_code"];
         $user_img = $arr["user_img"];
         $user_name = $arr["user_name"];
-        // yanzheng
-        //echo "vuid:".$vuid."\n";
-        //echo "check_code".$check_code."\n";
-        //var_dump(\think\Cache::get());
-        //exit();
+        // 验证码验证
         if (\think\Cache::has($vuid."random_code") && \think\Cache::get($vuid."random_code") == $check_code)
         {
             // db
@@ -158,29 +153,6 @@ class Index
         return json($retjson);
     }
 
-    public function get_addr_and_poster()
-    {
-        $retjson['errno'] = 0;
-        $res = \think\Db::table('t_poster')->select();
-        for ($i = 0; $i < count($res); $i++)
-        {
-            $retjson['data']['poster'][$i]['poster_id'] = $res[$i]['poster_id'];
-            $retjson['data']['poster'][$i]['poster_url'] = $res[$i]['poster_url'];
-            $retjson['data']['poster'][$i]['poster_desc'] = $res[$i]['poster_desc'];
-            $retjson['data']['poster'][$i]['poster_name'] = $res[$i]['poster_name'];
-        }
-
-        $res = \think\Db::table('t_address')->select();
-        for ($i = 0; $i < count($res); $i++)
-        {
-            $retjson['data']['address'][$i]['address_id'] = $res[$i]['address_id'];
-            $retjson['data']['address'][$i]['address'] = $res[$i]['addr'];
-        }
-
-        return json($retjson);
-
-    }
-
     public function upload_image()
     {   
         //$arr = json_decode($_POST['data'], true);
@@ -215,6 +187,8 @@ class Index
         {
             $poster_arr[$poster_res[$i]['poster_id']]['poster_url'] = $poster_res[$i]['poster_url'];
             $poster_arr[$poster_res[$i]['poster_id']]['poster_desc'] = $poster_res[$i]['poster_desc'];
+            $poster_arr[$poster_res[$i]['poster_id']]['poster_name'] = $poster_res[$i]['poster_name'];
+            $poster_arr[$poster_res[$i]['poster_id']]['poster_id'] = $poster_res[$i]['poster_id'];
         }
         return $poster_arr;
     }
@@ -243,13 +217,14 @@ class Index
         // db mail
         $res = \think\Db::table('t_mail')->where("user_id", $user_id)->select();
 
-        // db state
+        // get all mail_id
         $all_mail_id = array();
         for ($i = 0; $i < count($res); $i++)
         {
             array_push($all_mail_id, $res[$i]['mail_id']);
         }
 
+        // db state
         $all_mail_state = \think\Db::table("t_mail_state")->whereIn('mail_id', $all_mail_id)->select();
         $mail_to_state = array();
         for ($i = 0; $i < count($all_mail_state); $i++)
@@ -345,7 +320,6 @@ class Index
 
         $poster_arr = $this->get_poster_map();
         $address_arr = $this->get_addr_map();
-
 
         $res = \think\Db::table('t_mail')->where("mail_id", $mail_id)->find();
         $retjson['data']['user_id'] = $res['user_id'];
@@ -452,6 +426,8 @@ class Index
             $mail['is_read'] = 0;
             $mail['friend_name'] = $friend_name;
             $mail['address_id'] = $address_id;
+            $poster_name = $poster['poster_name'];
+
             //var_dump($mail);
             $ret = \think\Db::table('t_mail')->insert($mail);
             if ($ret != 1)
@@ -461,11 +437,6 @@ class Index
                 return json($retjson);
             }
             $mail_id = \think\Db::table('t_mail')->getLastInsID();
-
-            // mail_state['address_id'] = $address['address_id']
-
-            // 获取信使的名字, 当前没有这个字段
-            $poster_name = $poster['poster_name'];
 
             // 随机mail状态序列
             $num_state = 0;

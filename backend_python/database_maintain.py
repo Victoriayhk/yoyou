@@ -16,7 +16,7 @@ import logging
 import logging.handlers
 
 import settings
-from send_email import EmailHandler
+from email_helper import EmailHandler
 
 # 发送信的最小时间单位粒度, 比如最小粒度是天, 那么系统每隔一天扫描一次未发送的信, 
 # 到了送信时间就送出去
@@ -214,6 +214,29 @@ def update_unsend_mails(cursor, mails, cur_time):
             logging.info("sending out {} mail(s).".format(num_send_out))
 
 
+def maintain_mails():
+    try:
+        db, cursor = connect_database()
+        logger.info("connect to database succeed.")
+
+        cur_time = get_cur_time()
+        mails = get_unsend_mails(cursor, cur_time)
+        update_unsend_mails(cursor, mails, cur_time)
+
+        disconnect_database(db)
+        logger.info("disconnect with database.")
+    except Exception as e:
+        logger.error("maintain mails failed. {}".format(str(e)))
+
+
+def main():
+    while (True):
+        logger.info("starting scan mails...")
+        maintain_mails()
+        time.sleep(MINIMUM_TIME_GRANULARITY)
+        
+
+
 def test():
     db, cursor = connect_database()
     logger.info("connect to database succeed.")
@@ -231,11 +254,6 @@ def test():
     logger.info("disconnect database")
 
 
-# def main():
-#     schedule = sched.scheduler(time.time, time.sleep)
-#     schedule.enter(MINIMUM_TIME_GRANULARITY, 0, mail_maintain, None)
-#     schedule.run()
-
-
 if __name__ == "__main__":
-    test()
+    # test()
+    main()

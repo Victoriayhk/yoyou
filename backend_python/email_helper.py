@@ -125,8 +125,6 @@ class EmailHandler(object):
             logging.error("ERROR:Send mail failed {0} with {1}".format(strSubject, str(e)))
 
 
-
-
 def test():
     # send_email_easy() 使用
     # sender = {

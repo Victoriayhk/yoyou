@@ -164,7 +164,7 @@ class Index
         {
             // 随机得到arrive_time, 在预期到达时间左右
             $expect_second = $res['expect_time'] * 24 * 60 * 60;
-            $eps_second = intval(ceil($expect_second * 0.2 * (1.0 - $expect_time * 0.002)))
+            $eps_second = intval(ceil($expect_second * 0.2 * (1.0 - min($expect_time, 500) * 0.002)));
             $min_second = $expect_second - $eps_second;
             $max_second = $expect_second + $eps_second;
             $valid_time = mt_rand($min_second, $max_second);
@@ -195,8 +195,13 @@ class Index
             // 随机mail状态序列
             $num_state = 0;
             $point_time = $pub_time;
-            $min_during_time = 24 * 60 * 60;
-            $max_during_time = intval($expect_second * 0.5);
+            if ($expect_time > 50) {
+                $min_during_time = 5 * 24 * 60 * 60;
+                $max_during_time = 9 * 24 * 60 * 60;
+            } else {
+                $min_during_time = 1 * 24 * 60 * 60;
+                $max_during_time = 3 * 24 * 60 * 60;
+            }
             $mail_state['mail_id'] = $mail_id;
             while ($point_time < $arrive_time)
             {

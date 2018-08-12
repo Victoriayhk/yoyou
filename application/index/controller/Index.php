@@ -5,7 +5,15 @@ class Index
 {
     public function index()
     {
-	    echo "aaa";
+	    $data = array(
+            array(
+                "price" => "6874","air" => "国泰"
+            ),
+            array(
+                "price" => "4726","air" => "大韩航空"
+            ));
+        $res = array_rand($data);
+        var_dump($res);
     }
     public function hello()
     {
@@ -462,11 +470,12 @@ class Index
 
              // 随机状态的地点, 当前mail_state没有存这个字段
             $all_addr = \think\Db::table("t_address")->select();
-            $all_addr_name = array_column($all_addr, 'addr');
+            //$all_addr_name = array_column($all_addr, 'addr');
             while ($point_time < $arrive_time)
             {
-                $addr_idx = array_rand($all_addr_name);
-                $addr = $all_addr_name[$addr_idx];
+                $addr_idx = array_rand($all_addr);
+                $addr = $all_addr[$addr_idx]['addr'];
+                $addr_id = $all_addr[$addr_idx]['address_id'];
                 // 状态描述
                 $COMMON_MAIL_STATES_DESCRIBE = [
                 $poster_name . '终于到达了'. $addr . ', 不幸的是, 遭到暴风雨, 接下来只能小步伐前进了',
@@ -475,7 +484,8 @@ class Index
                 '信件在经过' . $addr . '被污损了, 还好遇到李师傅, 李师傅在故宫修过文物',
                 '路漫漫其修远兮, 吾将上下而求索, 可把' . $poster_name . '累坏了',
                 '已经到' . $addr . '了, 胜利就在眼前, 就快到了呢, ' . $poster_name . '加快了前进的步伐'];
-
+                
+                $mail_state['addr_id'] = $addr_id;
                 $mail_state['start_time'] = $point_time;
                 $during_time = mt_rand($min_during_time, $max_during_time);
                 if ($point_time + $during_time + 24 * 60 * 60 > $arrive_time)
@@ -485,8 +495,8 @@ class Index
                 } else
                 {     
                     $mail_state['end_time'] = $point_time + $during_time;
-                    $idx = array_rand($COMMON_MAIL_STATES_DESCRIBE);
-                    $mail_state['description'] = $COMMON_MAIL_STATES_DESCRIBE[$idx];
+                    //$idx = array_rand($COMMON_MAIL_STATES_DESCRIBE);
+                    $mail_state['description'] = $COMMON_MAIL_STATES_DESCRIBE[$addr_idx];
                 }
 
                 $ret = \think\Db::table('t_mail_state')->insert($mail_state);
@@ -510,16 +520,20 @@ class Index
         $arr = json_decode($_GET['data'], true);
         $user_id = $arr['user_id'];
         $res = \think\Db::table("t_user")->where('user_id', $user_id)->find();
-
+        
         $poster_res = \think\Db::table('t_poster')->select();
         for ($i = 0; $i < count($poster_res); $i++)
         {
-            $poster_arr[$poster_res[$i]['poster_id']] = $poster_res[$i]['poster_url'];
+            $poster_arr[$poster_res[$i]['poster_id']]['poster_url'] = $poster_res[$i]['poster_url'];
+            $poster_arr[$poster_res[$i]['poster_id']]['poster_desc'] = $poster_res[$i]['poster_desc'];
+            $poster_arr[$poster_res[$i]['poster_id']]['poster_name'] = $poster_res[$i]['poster_name'];
         }
 
         $email = $res['email'];
         $now = time();
         $mail_data = \think\Db::table("t_mail")->where('email', $email)->where('arrive_time', '<', $now)->select();
+        //var_dump($mail_data);
+        //return ;
         $arr_friend_id = array();
         for ($i = 0; $i < count($mail_data); $i++)
         {
@@ -541,20 +555,25 @@ class Index
         {
             $friend_id = $mail_data[$i]['user_id'];
             $one_mail = array();
+            $one_mail['mail_id'] = $mail_data[$i]['mail_id'];
             $one_mail['friend_user_id'] = $friend_id;
             $one_mail['friend_name'] = $user_info_by_id[$friend_id]['user_name'];
             $one_mail['friend_email'] = $user_info_by_id[$friend_id]['email'];
             $one_mail['user_img'] = $user_info_by_id[$friend_id]['user_img'];
             $one_mail['arrive_time'] = $mail_data[$i]['arrive_time'];
             $one_mail['create_time'] = $mail_data[$i]['pub_time'];
+            $one_mail['content'] = $mail_data[$i]['mail_content'];
             $one_mail['is_read'] = $mail_data[$i]['is_read'];
-            $one_mail['poster_url'] = $poster_arr[$mail_data[$i]['poster_id']];
+            $one_mail['poster_url'] = $poster_arr[$mail_data[$i]['poster_id']]['poster_url'];
+            $one_mail['poster_desc'] = $poster_arr[$mail_data[$i]['poster_id']]['poster_desc'];
+            $one_mail['poster_name'] = $poster_arr[$mail_data[$i]['poster_id']]['poster_name'];
             array_push($retjson['data'], $one_mail);
         }
         
         $sort_val = array_column($retjson['data'], 'arrive_time');
         //var_dump($sort_val); 
         array_multisort($sort_val, SORT_DESC, $retjson['data']);
+        $retjson['errno'] = 0;
         return json($retjson);
     }
 
@@ -598,7 +617,8 @@ class Index
         $poster_res = \think\Db::table('t_poster')->select();
         for ($i = 0; $i < count($poster_res); $i++)
         {
-            $poster_arr[$poster_res[$i]['poster_id']] = $poster_res[$i]['poster_url'];
+            $poster_arr[$poster_res[$i]['poster_id']]['poster_url'] = $poster_res[$i]['poster_url'];
+            $poster_arr[$poster_res[$i]['poster_id']]['poster_name'] = $poster_res[$i]['poster_name'];
         }
 
         $address_res = \think\Db::table('t_address')->select();
@@ -614,7 +634,8 @@ class Index
 
         $retjson['data']['user_id'] = $res['user_id'];
         $retjson['data']['mail_id'] = $res['mail_id'];
-        $retjson['data']['poster_url'] = $poster_arr[$res['poster_id']];
+        $retjson['data']['poster_url'] = $poster_arr[$res['poster_id']]['poster_url'];
+        $retjson['data']['poster_name'] = $poster_arr[$res['poster_id']]['poster_name'];
         $retjson['data']['friend_name'] = $user_info['user_name'];
         $retjson['data']['friend_img'] = $user_info['user_img'];
         $retjson['data']['friend_email'] = $user_info['email'];

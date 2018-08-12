@@ -380,7 +380,7 @@ class Index
         return json($retjson);
     }
 
-    /**public function commit_mail()
+    public function commit_mail()
     {
         $arr = json_decode($_GET['data'], true);
         $user_id = $arr["user_id"];
@@ -433,10 +433,10 @@ class Index
             $COMMON_MAIL_STATES_DESCRIBE = [
                 $poster_name . '终于到达了'. $addr . ', 不幸的是, 遭到暴风雨, 接下来只能小步伐前进了',
                 $poster_name . '在森林里迷路了, 但愿信使能找到路',
-                '天气晴朗, 还搭上了好友的顺风快车'$poster_name'快马加鞭地赶去',
-                '信件在经过'$addr'被污损了, 还好遇到李师傅, 李师傅在故宫修过文物',
-                '路漫漫其修远兮, 吾将上下而求索, 可把'$poster_name'累坏了',
-                '已经到'$addr'了, 胜利就在眼前, 就快到了呢, '$poster_name'加快了前进的步伐'];
+                '天气晴朗, 还搭上了好友的顺风快车' . $poster_name . '快马加鞭地赶去',
+                '信件在经过' . $addr . '被污损了, 还好遇到李师傅, 李师傅在故宫修过文物',
+                '路漫漫其修远兮, 吾将上下而求索, 可把' . $poster_name'累坏了',
+                '已经到' . $addr . '了, 胜利就在眼前, 就快到了呢, ' . $poster_name . '加快了前进的步伐'];
 
             // 随机mail状态序列
             $num_state = 0;
@@ -477,7 +477,7 @@ class Index
         }
         return json($retjson);
 
-    }*/
+    }
 
     public function get_all_receive_mail()
     {

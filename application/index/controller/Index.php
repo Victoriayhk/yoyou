@@ -424,23 +424,10 @@ class Index
             }
             $mail_id = \think\Db::table('t_mail')->getLastInsID();
 
-            // 随机状态的地点, 当前mail_state没有存这个字段
-            $all_addr = \think\Db::table("t_address")->select();
-            $address_tuple = array_rand(all_addr);
-            $addr = $address['addr'];
             // mail_state['address_id'] = $address['address_id']
 
             // 获取信使的名字, 当前没有这个字段
             $poster_name = $poster['poster_name'];
-
-            // 状态描述
-            $COMMON_MAIL_STATES_DESCRIBE = [
-                $poster_name . '终于到达了'. $addr . ', 不幸的是, 遭到暴风雨, 接下来只能小步伐前进了',
-                $poster_name . '在森林里迷路了, 但愿信使能找到路',
-                '天气晴朗, 还搭上了好友的顺风快车' . $poster_name . '快马加鞭地赶去',
-                '信件在经过' . $addr . '被污损了, 还好遇到李师傅, 李师傅在故宫修过文物',
-                '路漫漫其修远兮, 吾将上下而求索, 可把' . $poster_name . '累坏了',
-                '已经到' . $addr . '了, 胜利就在眼前, 就快到了呢, ' . $poster_name . '加快了前进的步伐'];
 
             // 随机mail状态序列
             $num_state = 0;
@@ -455,6 +442,19 @@ class Index
             $mail_state['mail_id'] = $mail_id;
             while ($point_time < $arrive_time)
             {
+                // 随机状态的地点, 当前mail_state没有存这个字段
+                $all_addr = \think\Db::table("t_address")->select();
+                $all_addr_name = array_column($all_addr, 'addr');
+                $addr = array_rand($all_addr_name);
+                // 状态描述
+                $COMMON_MAIL_STATES_DESCRIBE = [
+                $poster_name . '终于到达了'. $addr . ', 不幸的是, 遭到暴风雨, 接下来只能小步伐前进了',
+                $poster_name . '在森林里迷路了, 但愿信使能找到路',
+                '天气晴朗, 还搭上了好友的顺风快车' . $poster_name . '快马加鞭地赶去',
+                '信件在经过' . $addr . '被污损了, 还好遇到李师傅, 李师傅在故宫修过文物',
+                '路漫漫其修远兮, 吾将上下而求索, 可把' . $poster_name . '累坏了',
+                '已经到' . $addr . '了, 胜利就在眼前, 就快到了呢, ' . $poster_name . '加快了前进的步伐'];
+
                 $mail_state['start_time'] = $point_time;
                 $during_time = mt_rand($min_during_time, $max_during_time);
                 if ($point_time + $during_time + 24 * 60 * 60 > $arrive_time)

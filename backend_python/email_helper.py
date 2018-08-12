@@ -120,7 +120,7 @@ class EmailHandler(object):
                 listTo = listTo + listCc
             self.smtp.sendmail(strFrom, listTo, msgRoot.as_string())
             self.smtp.quit()
-            logger.info("Send mail success {0}".format(strSubject))
+            logging.info("Send mail success {0}".format(strSubject))
         except Exception as e:
             logging.error("ERROR:Send mail failed {0} with {1}".format(strSubject, str(e)))
 

@@ -23,3 +23,6 @@ DB_attri = {
 smtp_server = 'smtp.qq.com'
 smtp_username = '452570607@qq.com'
 smtp_password = ''
+
+# 标准邮件标题
+standard_email_subject = '您的好友通过yoyou给你发了一封超用心的信'

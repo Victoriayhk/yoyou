@@ -17,12 +17,8 @@ import logging
 import logging.handlers
 
 import settings
+from settings import MINIMUM_TIME_GRANULARITY
 from email_helper import EmailHandler
-
-# 发送信的最小时间单位粒度, 比如最小粒度是天, 那么系统每隔一天扫描一次未发送的信, 
-# 到了送信时间就送出去
-# 单位: 秒
-MINIMUM_TIME_GRANULARITY = 10
 
 DB_config = {
     "host": "127.0.0.1",
@@ -47,8 +43,7 @@ ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 
 # create formatter
-formatter = logging.Formatter('[%(asctime)s][%(levelname)s][%(name)s]: %(message)s')
-
+formatter = logging.Formatter('[%(asctime)s] p%(process)s {%(pathname)s:%(lineno)d} %(levelname)s - %(message)s','%m-%d %H:%M:%S')
 # add formatter to ch
 ch.setFormatter(formatter)
 
@@ -155,7 +150,7 @@ def update_test_data(db, cursor):
 def get_unsend_mails(cursor, cur_time):
     """获取所有未发送的mail"""
     # cur_time = int(round(time.mktime(datetime.datetime.now().timetuple())))
-    sql = """SELECT t_mail.mail_id as mail_id, t_mail.arrive_time as arrive_time FROM t_mail WHERE {} < t_mail.arrive_time""".format(cur_time)
+    sql = """SELECT t_mail.mail_id as mail_id, t_mail.arrive_time as arrive_time FROM t_mail WHERE {} <= t_mail.arrive_time""".format(cur_time)
     cursor.execute(sql)
     mails = cursor.fetchall()
     return mails
@@ -176,14 +171,14 @@ def parse_mail(cursor, mail_id):
     logger.info("parse mail: {}".format(mail))
 
     # 获取mail的状态(们), 并按时间顺序排序
-    sql = """SELECT * FROM t_mail_state WHERE mail_id={} ORDER BY field(start_time) DESC""".format(mail_id)
+    sql = """SELECT * FROM t_mail_state WHERE mail_id={} ORDER BY start_time DESC""".format(mail_id)
     cursor.execute(sql)
     mail_states = cursor.fetchall()
     logger.info("parse state: {}".format(mail_states))
 
-    email_to = [mail[5]]
+    email_to = mail[4]
     subject = settings.standard_email_subject
-    text, html, image_url_list = form_email_content(mail[6], mail_states)
+    text, html, image_url_list = form_email_content(mail[5], mail_states)
     return email_to, subject, text, html, image_url_list
 
 
@@ -194,22 +189,25 @@ def update_unsend_mails(cursor, mails, cur_time, smtp_password):
     for mail in mails:
         mail_id = mail[0]
         arrive_time = mail[1]
-        if (arrive_time + MINIMUM_TIME_GRANULARITY >= cur_time):
+        if (arrive_time <= cur_time && arrive_time + MINIMUM_TIME_GRANULARITY > cur_time):
+        # if (arrive_time + MINIMUM_TIME_GRANULARITY >= cur_time):
+            logger.info("198h: cur_time={}, arrive_time={}".format(cur_time, arrive_time))
+    
             """到了需要送信的时间"""
             email_to, subject, text, html, image_url_list = parse_mail(cursor, mail_id)
             # mail寄达
             try:
                 email_sender = EmailHandler(
                     settings.smtp_server, settings.smtp_username,
-                    smtp.password)
+                    smtp_password)
+
                 email_sender.send_email(
-                    settings.smtp_username, email_to,
+                    settings.smtp_username, [email_to],
                     subject, text,
                     html, image_url_list)
-
                 num_send_out += 1
             except Exception as e:
-                logging.error("{} send mail failed. mail_id={}, mail_to=[{}]".format(
+                logging.error("{}. send mail failed. mail_id={}, mail_to=[{}]".format(
                     str(e), mail_id, ", ".join(email_to)))
 
             logging.info("sending out {} mail(s).".format(num_send_out))

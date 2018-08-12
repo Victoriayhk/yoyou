@@ -373,6 +373,103 @@ class Index
         return json($retjson);
     }
 
+    public function commit_mail()
+    {
+        $arr = json_decode($_GET['data'], true);
+        $user_id = $arr["user_id"];
+        $poster_id = $arr["poster_id"];
+        $friend_name = $arr["friend_name"];
+        $address_id = $arr["friend_addr_id"];
+        $friend_email = $arr["friend_email"];
+        $content = $arr["content"];
+        $pub_time = time();
+        // poster day
+        $poster = \think\Db::table('t_poster')->where("id", $poster_id)->find();
+        if (!$res)
+        {
+            $retjson['errno'] = 4000;
+        }
+        else
+        {
+            // 随机得到arrive_time, 在预期到达时间左右
+            $expect_second = $res['expect_time'] * 24 * 60 * 60;
+            $eps_second = intval(ceil($expect_second * 0.2 * (1.0 - min($expect_time, 500) * 0.002)));
+            $min_second = $expect_second - $eps_second;
+            $max_second = $expect_second + $eps_second;
+            $valid_time = mt_rand($min_second, $max_second);
+            $arrive_time = $pub_time + $valid_time;
+
+            // mail加到数据库
+            $mail['user_id'] = $user_id;
+            $mail['poster_id'] = $poster_id;
+            $mail['email'] = $friend_email;
+            $mail['pub_time'] = $pub_time;
+            $mail['arrive_time'] = $arrive_time;
+            $ret = \think::Db::table('t_mail')->add($mail);
+            if ($ret != 0)
+            {
+                $retjson['errno'] = 插入数据失败;
+            }
+            $mail_id = \think\Db::table('t_mail')->getLastInsID();
+
+            // 随机状态的地点, 当前mail_state没有存这个字段
+            $all_addr = \think\Db::table("t_address")->select();
+            $address_tuple = array_rand(all_addr);
+            $addr = $address['addr'];
+            // mail_state['address_id'] = $address['address_id']
+
+            // 获取信使的名字, 当前没有这个字段
+            $poster_name = $poster['poster_name'];
+
+            // 状态描述
+            $COMMON_MAIL_STATES_DESCRIBE = [
+                $poster_name'终于到达了'$addr', 不幸的是, 遭到暴风雨, 接下来只能小步伐前进了',
+                $poster_name'在森林里迷路了, 但愿信使能找到路',
+                '天气晴朗, 还搭上了好友的顺风快车'$poster_name'快马加鞭地赶去',
+                '信件在经过'$addr'被污损了, 还好遇到李师傅, 李师傅在故宫修过文物',
+                '路漫漫其修远兮, 吾将上下而求索, 可把'$poster_name'累坏了',
+                '已经到'$addr'了, 胜利就在眼前, 就快到了呢, '$poster_name'加快了前进的步伐'];
+
+            // 随机mail状态序列
+            $num_state = 0;
+            $point_time = $pub_time;
+            if ($expect_time > 50) {
+                $min_during_time = 5 * 24 * 60 * 60;
+                $max_during_time = 9 * 24 * 60 * 60;
+            } else {
+                $min_during_time = 1 * 24 * 60 * 60;
+                $max_during_time = 3 * 24 * 60 * 60;
+            }
+            $mail_state['mail_id'] = $mail_id;
+            while ($point_time < $arrive_time)
+            {
+                $mail_state['start_time'] = $point_time;
+                $during_time = mt_rand($min_during_time, $max_during_time);
+                if ($point_time + $during_time + 24 * 60 * 60 > $arrive_time)
+                {
+                    $mail_state['end_time'] = $arrive_time;
+                    $mail_state['description'] = end($COMMON_MAIL_STATES_DESCRIBE);
+                } else
+                {     
+                    $mail_state['end_time'] = $point_time + $during_time;
+                    $mail_state['description'] = array_rand($COMMON_MAIL_STATES_DESCRIBE);
+                }
+
+                $ret = \think\Db::table('t_mail_state')->insert($mail_state);
+                if (!$ret)
+                {
+                    $retjson['errno'] = insert失败;
+                    return json($retjson);
+                }
+
+                $point_time = $mail_state['end_time'] + 1;
+            }
+            $retjson['errno'] = 0;
+        }
+        return json($retjson);
+
+    }
+
     public function get_all_receive_mail()
     {
         $arr = json_decode($_GET['data'], true);

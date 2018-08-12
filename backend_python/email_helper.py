@@ -3,10 +3,10 @@
 import os
 import sys
 import time
+import urllib2
 import smtplib  # 加载smtplib模块
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 
@@ -41,7 +41,7 @@ def send_email_easy(sender, receiver, mail_subject, mail_content):
         return False
 
     try:
-        msg = MIMEText(mail_content,'html','utf-8') 
+        msg = MIMEText(mail_content.encode('utf-8'),'html','utf-8') 
         msg['Subject'] = mail_subject
         # server.sendmail(sender["address"], receiver["address"], msg.as_string()) 
         # logging.debug("sending email succeed.")
@@ -90,20 +90,24 @@ class EmailHandler(object):
             for imgcount in range(0, len(listImagePath)):
                 msgHtmlImg += '<img src="cid:image{count}"><br>'.format(count=imgcount)
             msgText = MIMEText(msgHtmlImg, 'html')
+
             msgAlternative.attach(msgText)
 
             # This example assumes the image is in the current directory
             for i,imgpath in enumerate(listImagePath):
-                assert(os.path.exists(imgpath))
-                fp = open(imgpath, 'rb')
-                msgImage = MIMEImage(fp.read())
+                img_content = "";
+                if imgpath.startswith("http"):
+                    img_content=urllib2.urlopen(imgpath).read()
+                else:
+                    img_content=file(imgpath, "rb").read()
+                msgImage = MIMEImage(img_content)
                 fp.close()
 
                 # Define the image's ID as referenced above
                 msgImage.add_header('Content-ID', '<image{count}>'.format(count=i))
                 msgRoot.attach(msgImage)
         else:
-            msgText = MIMEText(msgContent, 'html')
+            msgText = MIMEText(msgContent.encode('utf-8'), 'html')
             msgAlternative.attach(msgText)
 
         return msgRoot

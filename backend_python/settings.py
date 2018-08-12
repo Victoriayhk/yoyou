@@ -19,18 +19,6 @@ DB_attri = {
     "t_mail_state": [ "mstate_id", "start_time", "end_time", "description", "mood", "mood_time", "mail_id"],
 }
 
-# +-------------+--------------+------+-----+---------+----------------+
-# | Field       | Type         | Null | Key | Default | Extra          |
-# +-------------+--------------+------+-----+---------+----------------+
-# | mstate_id   | int(11)      | NO   | PRI | NULL    | auto_increment |
-# | mail_id     | int(11)      | YES  |     | NULL    |                |
-# | start_time  | int(11)      | YES  |     | NULL    |                |
-# | end_time    | int(11)      | YES  |     | NULL    |                |
-# | mood        | text         | YES  |     | NULL    |                |
-# | mood_time   | int(11)      | YES  |     | NULL    |                |
-# | description | varchar(128) | YES  |     | NULL    |                |
-# +-------------+--------------+------+-----+---------+----------------+
-
 # 邮件服务器设置
 smtp_server = 'smtp.qq.com'
 smtp_username = '452570607@qq.com'

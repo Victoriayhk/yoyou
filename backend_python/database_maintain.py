@@ -14,7 +14,9 @@ import datetime
 import time
 import sched
 import logging
+import json
 import logging.handlers
+
 
 import settings
 from settings import MINIMUM_TIME_GRANULARITY
@@ -94,13 +96,24 @@ def get_unsend_mails(cursor, cur_time):
 
 def form_email_content(mail_content, mail_states):
     text = ""
-    html = mail_content
+    html = ""
+    image_url_list = []
+
+    json_content = json.loads(mail_content)
+    for item in json_content:
+        if item['type'] == 'text':
+            html = html + '<p>' + item['text'].encode('utf-8') + '</p>'
+        elif item['type'] == 'image':
+            html = html + '<br><img src="{}"><br>'.format(item['value'])
+
     for state in mail_states:
-        html = html + state['description']
+        descri = state['description'].encode('utf-8')
+        html = html + '</p>' + descri + '</p[>'
         if (state['mood'] != None):
             html = html + '<p>' + state['mood'] + '-- ' + str(state['mood_time']) + '</p>'
-    image_url_list = []
     return text, html, image_url_list
+
+
 
 
 def parse_mail(cursor, mail_id):
@@ -131,23 +144,27 @@ def parse_mail(cursor, mail_id):
 
 def send_mail(cursor, mail_id, smtp_password):
     email_to, subject, text, html, image_url_list = parse_mail(cursor, mail_id)
-    # mail寄达
-    try:
-        email_sender = EmailHandler(
-            settings.smtp_server, settings.smtp_username,
-            smtp_password)
 
-        email_sender.send_email(
-            settings.smtp_username, [email_to],
-            subject, text,
-            html, image_url_list)
-        logger.info("send a mail succeed. mail_id={}, mail_to={}".format(
-            mail_id, email_to))
-        return True
-    except Exception as e:
-        logger.error("{}. send mail failed. mail_id={}, mail_to=[{}]".format(
-            str(e), mail_id, email_to))
-        return False
+    # print "email_to=", email_to
+    # print "html=", html
+    # print "image_url_list=", image_url_list
+    # mail寄达
+    # try:
+    email_sender = EmailHandler(
+        settings.smtp_server, settings.smtp_username,
+        smtp_password)
+
+    email_sender.send_email(
+        settings.smtp_username, [email_to],
+        subject, text,
+        html, image_url_list)
+    logger.info("send a mail succeed. mail_id={}, mail_to={}".format(
+        mail_id, email_to))
+    return True
+    # except Exception as e:
+    #     logger.error("{}. send mail failed. mail_id={}, mail_to=[{}]".format(
+    #         unicode(e), mail_id, email_to))
+    #     return False
 
 
 def update_unsend_mails(cursor, mails, cur_time, smtp_password):
@@ -180,6 +197,22 @@ def maintain_mails(smtp_password):
         logger.error("maintain mails failed. {}".format(str(e)))
 
 
+def test_send_mail(argv):
+    smtp_password = argv[0]
+
+    db, cursor = connect_database()
+    logger.info("connect to database succeed.")
+
+    mail_id = 28
+
+    cur_time = get_cur_time()
+    send_mail(cursor, mail_id, smtp_password)
+
+    disconnect_database(db)
+    logger.info("disconnect with database.")
+
+
+
 def main(argv):
     smtp_password = argv[0]
     while (True):
@@ -189,5 +222,5 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    # test()
-    main(sys.argv[1:])
+    test_send_mail(sys.argv[1:])
+    # main(sys.argv[1:])

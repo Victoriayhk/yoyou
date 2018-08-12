@@ -175,9 +175,9 @@ class Index
 
     public function upload_image()
     {   
-        var_dump(request());
+        var_dump(request()->file("file"));
         $retjson['errno'] = 0;
-        $file = request()->file("file_name");
+        $file = request()->file("file");
         if ($file)
         {
             $info = $file->move(ROOT_PATH . 'public' . DS ."uploads/mail_img");
@@ -390,7 +390,7 @@ class Index
         $friend_email = $arr["friend_email"];
         $content = $arr["content"];
         $pub_time = time();
-        // poster day
+        // poster DB
         $poster = \think\Db::table('t_poster')->where("id", $poster_id)->find();
         if (!$res)
         {
@@ -399,7 +399,7 @@ class Index
         else
         {
             // 随机得到arrive_time, 在预期到达时间左右
-            $expect_second = $res['expect_time'] * 24 * 60 * 60;
+            $expect_second = $poster['expect_time'] * 24 * 60 * 60;
             $eps_second = intval(ceil($expect_second * 0.2 * (1.0 - min($expect_time, 500) * 0.002)));
             $min_second = $expect_second - $eps_second;
             $max_second = $expect_second + $eps_second;
@@ -412,7 +412,11 @@ class Index
             $mail['email'] = $friend_email;
             $mail['pub_time'] = $pub_time;
             $mail['arrive_time'] = $arrive_time;
-            $ret = \think\Db::table('t_mail')->add($mail);
+            $mail['mail_content'] = $content;
+            $mail['is_read'] = 0;
+            $mail['friend_name'] = $friend_name;
+            $mail['address_id'] = $address_id;
+            $ret = \think\Db::table('t_mail')->insert($mail);
             if ($ret != 0)
             {
                 $retjson['errno'] = 5000;
@@ -435,7 +439,7 @@ class Index
                 $poster_name . '在森林里迷路了, 但愿信使能找到路',
                 '天气晴朗, 还搭上了好友的顺风快车' . $poster_name . '快马加鞭地赶去',
                 '信件在经过' . $addr . '被污损了, 还好遇到李师傅, 李师傅在故宫修过文物',
-                '路漫漫其修远兮, 吾将上下而求索, 可把' . $poster_name'累坏了',
+                '路漫漫其修远兮, 吾将上下而求索, 可把' . $poster_name . '累坏了',
                 '已经到' . $addr . '了, 胜利就在眼前, 就快到了呢, ' . $poster_name . '加快了前进的步伐'];
 
             // 随机mail状态序列

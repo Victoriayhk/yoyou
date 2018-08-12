@@ -208,29 +208,48 @@ class Index
         return json($retjson);
     }
 
-    public function get_all_send_mail()
+    public function get_poster_map()
     {
-        $arr = json_decode($_GET['data'], true);
-        $user_id = $arr['user_id'];
-
-        // db poster
-        //var_dump($arr);
         $poster_res = \think\Db::table('t_poster')->select();
         for ($i = 0; $i < count($poster_res); $i++)
         {
             $poster_arr[$poster_res[$i]['poster_id']]['poster_url'] = $poster_res[$i]['poster_url'];
             $poster_arr[$poster_res[$i]['poster_id']]['poster_desc'] = $poster_res[$i]['poster_desc'];
         }
+        return $poster_arr;
+    }
+
+    public function get_addr_map()
+    {
+        $address_res = \think\Db::table('t_address')->select();
+        for ($i = 0; $i < count($address_res); $i++)
+        {
+            $address_arr[$address_res[$i]['address_id']]['addr'] = $address_res[$i]['addr'];
+            $address_arr[$address_res[$i]['address_id']]['address_id'] = $address_res[$i]['address_id'];
+            $address_arr[$address_res[$i]['address_id']]['addr_url'] = $address_res[$i]['addr_url'];
+        }
+        return $address_arr;
+    }
+
+    public function get_all_send_mail()
+    {
+        $arr = json_decode($_GET['data'], true);
+        $user_id = $arr['user_id'];
+
+        // db poster
+        $poster_arr = $this->get_poster_map();
+        $address_arr = $this->get_addr_map();
 
         // db mail
         $res = \think\Db::table('t_mail')->where("user_id", $user_id)->select();
 
         // db state
         $all_mail_id = array();
-        for ($i = 0; $i < count ($res); $i++)
+        for ($i = 0; $i < count($res); $i++)
         {
             array_push($all_mail_id, $res[$i]['mail_id']);
         }
+
         $all_mail_state = \think\Db::table("t_mail_state")->whereIn('mail_id', $all_mail_id)->select();
         $mail_to_state = array();
         for ($i = 0; $i < count($all_mail_state); $i++)
@@ -244,6 +263,7 @@ class Index
             $mail_to_state[$mail_id][$mstate_id]['description'] = $all_mail_state[$i]['description'];
             $mail_to_state[$mail_id][$mstate_id]['mood'] = $all_mail_state[$i]['mood'];
             $mail_to_state[$mail_id][$mstate_id]['mood_time'] = $all_mail_state[$i]['mood_time'];
+            $mail_to_state[$mail_id][$mstate_id]['addr_id'] = $all_mail_state[$i]['addr_id'];
         }
         
         $retjson['data']['arrived_unread_mail'] = array();
@@ -284,6 +304,7 @@ class Index
                         $mail['poster_status_etime'] = $value['end_time'];
                         $mail['mood'] = $value['mood'];
                         $mail['mood_time'] = $value['mood_time'];
+                        $mail['addr_url'] = $address_arr[$value['addr_id']]['addr_url'];
                         break;
                     }
                 }
@@ -322,25 +343,16 @@ class Index
         $arr = json_decode($_GET['data'], true);
         $mail_id = $arr['mail_id'];
 
-        $poster_res = \think\Db::table('t_poster')->select();
-        for ($i = 0; $i < count($poster_res); $i++)
-        {
-            $poster_arr[$poster_res[$i]['poster_id']]['poster_url'] = $poster_res[$i]['poster_url'];
-            $poster_arr[$poster_res[$i]['poster_id']]['poster_desc'] = $poster_res[$i]['poster_desc'];
-        }
+        $poster_arr = $this->get_poster_map();
+        $address_arr = $this->get_addr_map();
 
-        $address_res = \think\Db::table('t_address')->select();
-        for ($i = 0; $i < count($address_res); $i++)
-        {
-            $address_arr[$address_res[$i]['address_id']] = $address_res[$i]['addr'];
-        }
 
         $res = \think\Db::table('t_mail')->where("mail_id", $mail_id)->find();
         $retjson['data']['user_id'] = $res['user_id'];
         $retjson['data']['mail_id'] = $res['mail_id'];
         $retjson['data']['poster_url'] = $poster_arr[$res['poster_id']]['poster_url'];
         $retjson['data']['friend_name'] = $res['friend_name'];
-        $retjson['data']['friend_addr'] = $address_arr[$res['address_id']];
+        $retjson['data']['friend_addr'] = $address_arr[$res['address_id']]['address_id'];
         $retjson['data']['arrive_time'] = $res['arrive_time'];
         $retjson['data']['create_time'] = $res['pub_time'];
         $retjson['data']['content'] = $res['mail_content'];
@@ -358,6 +370,7 @@ class Index
             $state[$mstate_id]['description'] = $mail_state[$i]['description'];
             $state[$mstate_id]['mood'] = $mail_state[$i]['mood'];
             $state[$mstate_id]['mood_time'] = $mail_state[$i]['mood_time'];
+            $state[$mstate_id]['addr_id'] = $mail_state[$i]['addr_id'];
         }
         if ($res['arrive_time'] > time())
         {
@@ -372,6 +385,7 @@ class Index
                     $retjson['data']['poster_status_etime'] = $value['end_time'];
                     $retjson['data']['mood'] = $value['mood'];
                     $retjson['data']['mood_time'] = $value['mood_time'];
+                    $retjson['data']['addr_url'] = $address_arr[$value['addr_id']]['addr_url'];
                     break;
                 }
             }
@@ -388,6 +402,7 @@ class Index
                 $one_state['poster_status_etime'] = $value['end_time'];
                 $one_state['mood'] = $value['mood'];
                 $one_state['mood_time'] = $value['mood_time'];
+                $one_state['addr_url'] = $address_arr[$value['addr_id']]['addr_url'];
                 array_push($time_line, $one_state);
             }
             $retjson['data']['time_line'] = $time_line;
@@ -400,10 +415,6 @@ class Index
     {
         $arr2 = json_decode(file_get_contents("php://input"), true);
         $arr = $arr2['data'];
-        
-        
-        //var_dump($arr2);
-        //return ;
         $user_id = $arr["user_id"];
         $poster_id = $arr["poster_id"];
         $friend_name = $arr["friend_name"];
@@ -521,13 +532,7 @@ class Index
         $user_id = $arr['user_id'];
         $res = \think\Db::table("t_user")->where('user_id', $user_id)->find();
         
-        $poster_res = \think\Db::table('t_poster')->select();
-        for ($i = 0; $i < count($poster_res); $i++)
-        {
-            $poster_arr[$poster_res[$i]['poster_id']]['poster_url'] = $poster_res[$i]['poster_url'];
-            $poster_arr[$poster_res[$i]['poster_id']]['poster_desc'] = $poster_res[$i]['poster_desc'];
-            $poster_arr[$poster_res[$i]['poster_id']]['poster_name'] = $poster_res[$i]['poster_name'];
-        }
+        $poster_arr = $this->get_poster_map();
 
         $email = $res['email'];
         $now = time();
@@ -614,20 +619,9 @@ class Index
     {
         $arr = json_decode($_GET['data'], true);
         $mail_id = $arr['mail_id'];
-        $poster_res = \think\Db::table('t_poster')->select();
-        for ($i = 0; $i < count($poster_res); $i++)
-        {
-            $poster_arr[$poster_res[$i]['poster_id']]['poster_url'] = $poster_res[$i]['poster_url'];
-            $poster_arr[$poster_res[$i]['poster_id']]['poster_name'] = $poster_res[$i]['poster_name'];
-        }
 
-        $address_res = \think\Db::table('t_address')->select();
-        for ($i = 0; $i < count($address_res); $i++)
-        {
-            $address_arr[$address_res[$i]['address_id']] = $address_res[$i]['addr'];
-        }
-
-
+        $poster_arr = $this->get_poster_map();
+        $address_arr = $this->get_addr_map();
 
         $res = \think\Db::table('t_mail')->where("mail_id", $mail_id)->find();
         $user_info = \think\Db::table("t_user")->where('user_id', $res['user_id'])->find();
@@ -656,6 +650,7 @@ class Index
             $state[$mstate_id]['description'] = $mail_state[$i]['description'];
             $state[$mstate_id]['mood'] = $mail_state[$i]['mood'];
             $state[$mstate_id]['mood_time'] = $mail_state[$i]['mood_time'];
+            $state[$mstate_id]['addr_id'] = $mail_state[$i]['addr_id'];
         }        
         ksort($state);
         $time_line = array();
@@ -666,11 +661,12 @@ class Index
             $one_state['poster_status_etime'] = $value['end_time'];
             $one_state['mood'] = $value['mood'];
             $one_state['mood_time'] = $value['mood_time'];
+            $one_state['addr_url'] = $address_arr[$value['addr_id']]['addr_url'];
             array_push($time_line, $one_state);
         }
         $retjson['data']['time_line'] = $time_line;
 
-       /** if ($res['is_read'] == 0)
+        if ($res['is_read'] == 0)
         {
             // update
             $updateres = \think\Db::table("t_mail")->where('mail_id', $res['mail_id'])->update(['is_read' => 1]);
@@ -680,7 +676,7 @@ class Index
                 $retjson['errno'] = 4001;
                 return json($retjson);
             }
-        }*/
+        }
 
         $retjson['errno'] = 0;
         return json($retjson);

@@ -6,6 +6,7 @@
 1. 对正在途中的mail的状态进行更新
 2. 对到达指定寄达时间的mail进行发送并更新状态
 """
+import sys
 
 import MySQLdb
 import json
@@ -172,13 +173,13 @@ def parse_mail(cursor, mail_id):
     sql = """SELECT * FROM t_mail WHERE mail_id={}""".format(mail_id)
     cursor.execute(sql)
     mail = cursor.fetchall()[0]
-    print mail
+    logger.info("parse mail: {}".format(mail))
 
     # 获取mail的状态(们), 并按时间顺序排序
     sql = """SELECT * FROM t_mail_state WHERE mail_id={} ORDER BY field(start_time) DESC""".format(mail_id)
     cursor.execute(sql)
     mail_states = cursor.fetchall()
-    print mail_states
+    logger.info("parse state: {}".format(mail_states))
 
     email_to = [mail[5]]
     subject = settings.standard_email_subject
@@ -186,7 +187,7 @@ def parse_mail(cursor, mail_id):
     return email_to, subject, text, html, image_url_list
 
 
-def update_unsend_mails(cursor, mails, cur_time):
+def update_unsend_mails(cursor, mails, cur_time, smtp_password):
     num_send_out = 0
 
     """更新未发送mail的状态"""
@@ -200,7 +201,7 @@ def update_unsend_mails(cursor, mails, cur_time):
             try:
                 email_sender = EmailHandler(
                     settings.smtp_server, settings.smtp_username,
-                    settings.smtp.password)
+                    smtp.password)
                 email_sender.send_email(
                     settings.smtp_username, email_to,
                     subject, text,
@@ -214,14 +215,14 @@ def update_unsend_mails(cursor, mails, cur_time):
             logging.info("sending out {} mail(s).".format(num_send_out))
 
 
-def maintain_mails():
+def maintain_mails(smtp_password):
     try:
         db, cursor = connect_database()
         logger.info("connect to database succeed.")
 
         cur_time = get_cur_time()
         mails = get_unsend_mails(cursor, cur_time)
-        update_unsend_mails(cursor, mails, cur_time)
+        update_unsend_mails(cursor, mails, cur_time, smtp_password)
 
         disconnect_database(db)
         logger.info("disconnect with database.")
@@ -229,12 +230,12 @@ def maintain_mails():
         logger.error("maintain mails failed. {}".format(str(e)))
 
 
-def main():
+def main(argv):
+    smtp_password = argv[0]
     while (True):
         logger.info("starting scan mails...")
-        maintain_mails()
+        maintain_mails(smtp_password)
         time.sleep(MINIMUM_TIME_GRANULARITY)
-        
 
 
 def test():
@@ -256,4 +257,4 @@ def test():
 
 if __name__ == "__main__":
     # test()
-    main()
+    main(sys.argv[1:])

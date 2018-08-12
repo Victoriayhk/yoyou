@@ -70,8 +70,10 @@ class Index
         $vuid = $arr["vuid"];
         // 发邮件操作
         $random_code = $this->get_random_code();
-        \think\Session::set($vuid."random_code", $random_code);
-        \think\Session::set($vuid."random_code_timestamp", time());
+        \think\Cache::set($vuid."random_code", $random_code);
+        \think\Cache::set($vuid."random_code_timestamp", time());
+        
+        $retjson["check_code"] =  \think\Cache::get($vuid."random_code");
         $retjson["errno"] = $this->email($email, $random_code);
         return json($retjson);
     }
@@ -89,14 +91,18 @@ class Index
         $vuid = $arr["vuid"];
         $email = $arr["email"];
         $check_code = $arr["check_code"];
-        /*$user_img = $arr["user_img"];
-        $user_name = $arr["user_name"];*/
+        $user_img = $arr["user_img"];
+        $user_name = $arr["user_name"];
         // yanzheng
-        if (\think\Session::has($vuid."random_code") && \think\Session::get($vuid."random_code") == $check_code)
+        //echo "vuid:".$vuid."\n";
+        //echo "check_code".$check_code."\n";
+        //var_dump(\think\Cache::get());
+        //exit();
+        if (\think\Cache::has($vuid."random_code") && \think\Cache::get($vuid."random_code") == $check_code)
         {
             // db
-            \think\Session::delete($vuid."random_code");
-            $data = ['user_name' => $user_name, 'user_img' => $user_img, 'email' => $email];
+            \think\Cache::rm($vuid."random_code", NULL);
+            $data = ['user_name' => $user_name, 'user_img' => $user_img, 'email' => $email, 'vuid' => $vuid];
             $res = \think\Db::table('t_user')->insert($data);
             if ($res != 1)
             {
@@ -111,10 +117,9 @@ class Index
         }
         else
         {
-            echo $retjson['errno'] = 1001;
+            $retjson['errno'] = 1001;
         }
         return json($retjson);
-
     }
 
     public function get_poster()
@@ -169,7 +174,9 @@ class Index
     }
 
     public function upload_image()
-    {
+    {   
+        var_dump(request());
+        $retjson['errno'] = 0;
         $file = request()->file("file_name");
         if ($file)
         {
@@ -373,7 +380,7 @@ class Index
         return json($retjson);
     }
 
-    public function commit_mail()
+    /**public function commit_mail()
     {
         $arr = json_decode($_GET['data'], true);
         $user_id = $arr["user_id"];
@@ -405,10 +412,11 @@ class Index
             $mail['email'] = $friend_email;
             $mail['pub_time'] = $pub_time;
             $mail['arrive_time'] = $arrive_time;
-            $ret = \think::Db::table('t_mail')->add($mail);
+            $ret = \think\Db::table('t_mail')->add($mail);
             if ($ret != 0)
             {
-                $retjson['errno'] = 插入数据失败;
+                $retjson['errno'] = 5000;
+                $retjson['errmsg'] = "插入数据失败";
             }
             $mail_id = \think\Db::table('t_mail')->getLastInsID();
 
@@ -423,8 +431,8 @@ class Index
 
             // 状态描述
             $COMMON_MAIL_STATES_DESCRIBE = [
-                $poster_name'终于到达了'$addr', 不幸的是, 遭到暴风雨, 接下来只能小步伐前进了',
-                $poster_name'在森林里迷路了, 但愿信使能找到路',
+                $poster_name . '终于到达了'. $addr . ', 不幸的是, 遭到暴风雨, 接下来只能小步伐前进了',
+                $poster_name . '在森林里迷路了, 但愿信使能找到路',
                 '天气晴朗, 还搭上了好友的顺风快车'$poster_name'快马加鞭地赶去',
                 '信件在经过'$addr'被污损了, 还好遇到李师傅, 李师傅在故宫修过文物',
                 '路漫漫其修远兮, 吾将上下而求索, 可把'$poster_name'累坏了',
@@ -458,7 +466,8 @@ class Index
                 $ret = \think\Db::table('t_mail_state')->insert($mail_state);
                 if (!$ret)
                 {
-                    $retjson['errno'] = insert失败;
+                    $retjson['errno'] = 5000;
+                    $retjson['errmsg'] = "错误";
                     return json($retjson);
                 }
 
@@ -468,7 +477,7 @@ class Index
         }
         return json($retjson);
 
-    }
+    }*/
 
     public function get_all_receive_mail()
     {
@@ -530,7 +539,7 @@ class Index
         $mood = $arr['mood'];
         $retjson['errno'] = 0;
         // 找到当前时间所在的mail_state
-        $cur_time = time()
+        $cur_time = time();
         //$where_condition['mail_id'] = $mail_id;
         //$where_condition['_string'] = 'mstate_start_time <= '$cur_time' AND '$cur_time' <= mstate_end_time';
         $mail_state = \think\Db::table("t_mail_state")->where('mail_id', $mail_id)->where('start_time', '<=', $cur_time)->where('end_time', '>', $cur_time)->find();
@@ -540,8 +549,8 @@ class Index
         {
             // 奇怪的事情发生了
             $retjson['errno'] = 5000;
-            $retjson['errmsg'] = "这里是找到没有对应的mail_state的出错"
-            return $retjson
+            $retjson['errmsg'] = "这里是找到没有对应的mail_state的出错";
+            return json($retjson);
         }
         
         // update对应的mood

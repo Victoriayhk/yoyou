@@ -145,7 +145,7 @@ class Index
         return json($retjson);
     }
 
-    /**public function commit_mail()
+    public function commit_mail()
     {
         $arr = json_decode($_GET['data'], true);
         $user_id = $arr["user_id"];
@@ -180,7 +180,8 @@ class Index
             $ret = \think::Db::table('t_mail')->add($mail);
             if ($ret != 0)
             {
-                $retjson['errno'] = 插入数据失败;
+                $retjson['errno'] = 4002;
+                $retjson['errmsg'] = "插入数据失败"
             }
             $mail_id = \think\Db::table('t_mail')->getLastInsID();
 
@@ -221,7 +222,8 @@ class Index
                 $ret = \think\Db::table('t_mail_state')->insert($mail_state);
                 if (!$ret)
                 {
-                    $retjson['errno'] = insert失败;
+                    $retjson['errno'] = 5002;
+                    $retjson['errmsg'] = "insert失败";
                     return json($retjson);
                 }
 
@@ -231,7 +233,7 @@ class Index
         }
         return json($retjson);
 
-    }*/
+    }
 
     public function upload_image()
     {
@@ -491,37 +493,38 @@ class Index
         return json($retjson);
     }
 
-   /** public function append_mail()
+    public function append_mail()
     {
         $arr = json_decode($_GET['data'], true);
         $mail_id = $arr['mail_id'];
         $mood = $arr['mood'];
-
+        $retjson['errno'] = 0;
         // 找到当前时间所在的mail_state
         $cur_time = time()
-        $where_condition['mail_id'] = $mail_id;
-        $where_condition['_string'] = 'mstate_start_time <= '$cur_time' AND '$cur_time' <= mstate_end_time';
-        $mail_state = \think\Db::table("t_mail_state")->where($where_condition)->find();
+        //$where_condition['mail_id'] = $mail_id;
+        //$where_condition['_string'] = 'mstate_start_time <= '$cur_time' AND '$cur_time' <= mstate_end_time';
+        $mail_state = \think\Db::table("t_mail_state")->where('mail_id', $mail_id)->where('start_time', '<=', $cur_time)->where('end_time', '>', $cur_time)->find();
 
         // 没有对应的mail_state
         if ($mail_state == null)
         {
             // 奇怪的事情发生了
-            $retjson['errno'] = 这里是找到没有对应的mail_state的出错;
+            $retjson['errno'] = 5000;
+            $retjson['errmsg'] = "这里是找到没有对应的mail_state的出错"
             return $retjson
         }
         
         // update对应的mood
         $data['mood'] = $mood;
         $data['mood_time'] = $cur_time;
-        $ret = \think\Db::table("t_mail_state")->where('mstate_id', $mail_state['mstate_id'])->save($data);
+        $ret = \think\Db::table("t_mail_state")->where('mstate_id', $mail_state['mstate_id'])->update($data);
 
         if (!$res)
         {
-            $retjson['errno'] = 4000;
+            $retjson['errno'] = 5001;
         }
         return $retjson;
-    }*/
+    }
 
     public function get_receive_mail()
     {

@@ -1,5 +1,37 @@
 <?php
 namespace app\index\controller;
+// 登录注册错误
+define("ERROR_REGISTER_EXIST", 100); // 已注册
+define("ERROR_REGISTER_WRONGCODE", 101); //验证码错误
+
+// user table error
+define("ERROR_USERTABLE_INSERT", 200);
+define("ERROR_USERTABLE_UPDATE", 201);
+define("ERROR_USERTABLE_SELECT", 202);
+
+//upload resource error
+
+//state table error
+define("ERROR_STATETABLE_INSERT", 300);
+define("ERROR_STATETABLE_UPDATE", 301);
+define("ERROR_STATETABLE_SELECT", 302);
+
+//mail table error
+define("ERROR_MAILABLE_INSERT", 400);
+define("ERROR_MAILTABLE_UPDATE", 401);
+define("ERROR_MAILTABLE_SELECT", 402);
+
+//poster table error
+define("ERROR_POSTERTABLE_INSERT", 500);
+define("ERROR_POSTERTABLE_UPDATE", 501);
+define("ERROR_POSTERTABLE_SELECT", 502);
+
+//address table error
+define("ERROR_ADDRESSTABLE_INSERT", 600);
+define("ERROR_ADDRESSTABLE_UPDATE", 601);
+define("ERROR_ADDRESSTABLE_SELECT", 602);
+
+
 
 class Index
 {
@@ -63,7 +95,7 @@ class Index
         }
         else
         {
-            $retjson["errno"] = 1000;
+            $retjson["errno"] = ERROR_REGISTER_EXIST;
             $retjson["data"]["is_registered"] = 0;
         }
         return json($retjson);
@@ -78,7 +110,7 @@ class Index
         $vuid = $arr["vuid"];
         // 发邮件操作
         $random_code = $this->get_random_code();
-        \think\Cache::set($vuid."random_code", $random_code， 3600);
+        \think\Cache::set($vuid."random_code", $random_code, 3600);
         
         $retjson["check_code"] =  \think\Cache::get($vuid."random_code");
         $retjson["errno"] = $this->email($email, $random_code);
@@ -109,7 +141,7 @@ class Index
             $res = \think\Db::table('t_user')->insert($data);
             if ($res != 1)
             {
-                $retjson['errno'] = 2000;
+                $retjson['errno'] = ERROR_STATETABLE_INSERT;
             }
             else
             {
@@ -120,7 +152,7 @@ class Index
         }
         else
         {
-            $retjson['errno'] = 1001;
+            $retjson['errno'] = ERROR_REGISTER_WRONGCODE;
         }
         return json($retjson);
     }
@@ -159,7 +191,7 @@ class Index
         $obj = json_decode(file_get_contents("php://input"));
         //$obj->file;
         return ;
-        var_dump(request()->get('file'));
+        // var_dump(request()->get('file'));
         $retjson['errno'] = 0;
         $file = request()->file("file");
         if ($file)
@@ -432,7 +464,7 @@ class Index
             $ret = \think\Db::table('t_mail')->insert($mail);
             if ($ret != 1)
             {
-                $retjson['errno'] = 5000;
+                $retjson['errno'] = ERROR_MAILABLE_INSERT;
                 $retjson['errmsg'] = "插入数据失败";
                 return json($retjson);
             }
@@ -484,7 +516,7 @@ class Index
                 $ret = \think\Db::table('t_mail_state')->insert($mail_state);
                 if (!$ret)
                 {
-                    $retjson['errno'] = 5000;
+                    $retjson['errno'] = ERROR_STATETABLE_INSERT;
                     $retjson['errmsg'] = "错误";
                     return json($retjson);
                 }
@@ -500,6 +532,7 @@ class Index
     public function get_all_receive_mail()
     {
         $arr = json_decode($_GET['data'], true);
+        $retjson['errno'] = 0;
         $user_id = $arr['user_id'];
         $res = \think\Db::table("t_user")->where('user_id', $user_id)->find();
         
@@ -549,7 +582,6 @@ class Index
         $sort_val = array_column($retjson['data'], 'arrive_time');
         //var_dump($sort_val); 
         array_multisort($sort_val, SORT_DESC, $retjson['data']);
-        $retjson['errno'] = 0;
         return json($retjson);
     }
 
@@ -569,7 +601,7 @@ class Index
         if ($mail_state == null)
         {
             // 奇怪的事情发生了
-            $retjson['errno'] = 5000;
+            $retjson['errno'] = ERROR_STATETABLE_SELECT;
             $retjson['errmsg'] = "这里是找到没有对应的mail_state的出错";
             return json($retjson);
         }
@@ -581,7 +613,7 @@ class Index
 
         if (!$res)
         {
-            $retjson['errno'] = 5001;
+            $retjson['errno'] = ERROR_STATETABLE_UPDATE;
         }
         return json($retjson);
     }
@@ -644,7 +676,7 @@ class Index
             if ($updateres == 0)
             {
                 $retjson['data'] = null;
-                $retjson['errno'] = 4001;
+                $retjson['errno'] = ERROR_MAILTABLE_UPDATE;
                 return json($retjson);
             }
         }

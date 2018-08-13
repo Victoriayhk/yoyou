@@ -3,6 +3,7 @@
 import sys
 import datetime
 import time
+import urllib2
 
 from database_maintain import connect_database
 from database_maintain import get_unsend_mails
@@ -92,22 +93,28 @@ def update_test_data(db, cursor):
 
 
 def test(argv):
-	smtp_password = argv[0]
+    url = "http://www.baidu.com/img/bd_logo1.png"
+    img_content = urllib2.urlopen(url).read()
 
-    db, cursor = connect_database()
-    logger.info("connect to database succeed.")
+    file = open('baidu.png', 'w')
+    file.write(img_content)
+    file.close()
+	# smtp_password = argv[0]
 
-    cur_time = get_cur_time()
-    mails = get_unsend_mails(cursor, cur_time)
-    print cur_time, mails
+ #    db, cursor = connect_database()
+ #    logger.info("connect to database succeed.")
 
-    cur_time = 1533922511
-    mails = get_unsend_mails(cursor, cur_time)
-    print get_cur_time(), mails
-    update_unsend_mails(cursor, mails, cur_time, smtp_password)
+ #    cur_time = get_cur_time()
+ #    mails = get_unsend_mails(cursor, cur_time)
+ #    print cur_time, mails
 
-    disconnect_database(db)
-    logger.info("disconnect database")
+ #    cur_time = 1533922511
+ #    mails = get_unsend_mails(cursor, cur_time)
+ #    print get_cur_time(), mails
+ #    update_unsend_mails(cursor, mails, cur_time, smtp_password)
+
+ #    disconnect_database(db)
+ #    logger.info("disconnect database")
 
 
 if __name__ == "__main__":

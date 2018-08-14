@@ -87,10 +87,9 @@ def get_unsend_mails(cursor, cur_time):
     """获取所有未发送的mail"""
     # cur_time = int(round(time.mktime(datetime.datetime.now().timetuple())))
 
-    # sql = """SELECT mail_id,arrive_time,is_send FROM t_mail WHERE {} = t_mail.arrive_time AND is_send = 0""".format(cur_time)
-    sql = """SELECT mail_id,arrive_time,is_send FROM t_mail""".format(cur_time)
+    sql = """SELECT mail_id,arrive_time,is_send FROM t_mail WHERE {} = t_mail.arrive_time AND is_send = 0""".format(cur_time)
+    # sql = """SELECT mail_id,arrive_time,is_send FROM t_mail""".format(cur_time)
     cursor.execute(sql)
-    # mails = cursor.fetchall()
     mails_sql = cursor.fetchall()
     mails = [{"mail_id": mail_sql[0], "arrive_time": mail_sql[1], "is_send": mails_sql[2]} for mail_sql in mails_sql]
     return mails
@@ -118,19 +117,44 @@ def form_email_content(mail_content, mail_states):
     return text, html, image_url_list
 
 
-def form_email_content2(mail_content, mail_states):
-    mail_json = json.loads(mail_content)
+def form_email_content2(cursor, mail_id, mail_content, mail_states):
+    # mail_json = json.loads(mail_content)
 
-    for state in mail_states:
-        state_item = {}
-        state_item['type'] = 'text'
-        text =  '</p>' + state['description'] + '</p>'
-        if (state['mood'] != None):
-            mood_time = time.localtime(state['mood_time'])
-            str_mood_time = time.strftime("%Y-%m-%d %H:%M:%S", mood_time)
-            text = text + '<p>' + state['mood'] + '-- ' + str_mood_time + '</p>'
-        state_item['text'] = text
-        mail_json.append(state_item)
+    cursor.execute(
+        "SELECT user_id, pub_time, poster_id FROM t_mail WHERE mail_id={}".format(mail_id))
+    data = cursor.fetchall()[0]
+    user_id = data[0]
+    pub_time = data[1]
+    poster_id = data[2]
+
+    cursor.execute(
+        "SELECT user_name FROM t_user WHERE user_id={}".format(user_id))
+    data = cursor.fetchall()[0]
+    user_name = data[0]
+
+    cursor.execute(
+        "SELECT poster_name FROM t_poster WHERE poster_id={}".format(poster_id))
+    data = cursor.fetchall()[0]
+    poster_name = data[0]
+
+    t_pub_time = time.localtime(pub_time)
+    str_pub_time = time.strftime("%Y-%m-%d", t_pub_time)
+
+    mail_json = {}
+    mail_json['from'] = user_name
+    mail_json['pub_time'] = str_pub_time
+    mail_json['poster_name'] = poster_name
+
+    # for state in mail_states:
+    #     state_item = {}
+    #     state_item['type'] = 'text'
+    #     text =  '</p>' + state['description'] + '</p>'
+    #     if (state['mood'] != None):
+    #         mood_time = time.localtime(state['mood_time'])
+    #         str_mood_time = time.strftime("%Y-%m-%d %H:%M:%S", mood_time)
+    #         text = text + '<p>' + state['mood'] + '-- ' + str_mood_time + '</p>'
+    #     state_item['text'] = text
+    #     mail_json.append(state_item)
 
     return mail_json
 
@@ -183,7 +207,7 @@ def parse_mail2(cursor, mail_id):
     
     email_to = mail['email']
     subject = settings.standard_email_subject
-    mail_json = form_email_content2(mail['mail_content'], mail_states)
+    mail_json = form_email_content2(cursor, mail_id, mail['mail_content'], mail_states)
     return email_to, subject, mail_json
 
 
@@ -206,20 +230,27 @@ def send_mail(cursor, mail_id, smtp_password):
             settings.smtp_server, settings.smtp_username,
             smtp_password)
 
-    # email_sender.send_email(
-    #     settings.smtp_username, [email_to],
-    #     subject, text,
-    #     html, image_url_list)
-        # email_sender.send_email2(
-        #     settings.smtp_username, [email_to],
-        #     subject, mail_json)
+        email_sender.send_email2(
+            settings.smtp_username, [email_to],
+            subject, mail_json)
+
         logger.info("send a mail succeed. mail_id={}, mail_to={}".format(
             mail_id, email_to))
+        
         return True
     except Exception as e:
         logger.error("{}. send mail failed. mail_id={}, mail_to=[{}]".format(
             unicode(e), mail_id, email_to))
         return False
+
+
+def unsend_all_mails(db, cursor, mails, cur_time, smtp_password):
+    cursor.execute("""SELECT mail_id FROM t_mail WHERE is_send=0""")
+    mails_sql = cursor.fetchall()
+    mail_ids = [mail[0] for mail in mails_sql]
+    for mid in mail_ids:
+        cursor.execute("UPDATE t_mail SET is_send=1 WHERE mail_id={}".format(mid));
+    db.commit()
 
 
 def update_unsend_mails(db, cursor, mails, cur_time, smtp_password):
@@ -230,11 +261,10 @@ def update_unsend_mails(db, cursor, mails, cur_time, smtp_password):
         mail_id = mail['mail_id']
         arrive_time = mail['arrive_time']
         is_send = mail['is_send']
-        # if (arrive_time >= cur_time and is_send == 0):
-        # if (arrive_time + MINIMUM_TIME_GRANULARITY > cur_time):
-        if send_mail(cursor, mail_id, smtp_password):
-            cursor.execute("UPDATE t_mail SET is_send=1 WHERE mail_id={}".format(mail_id));
-            num_send_out += 1
+        if (arrive_time >= cur_time and is_send == 0):
+            if send_mail(cursor, mail_id, smtp_password):
+                cursor.execute("UPDATE t_mail SET is_send=1 WHERE mail_id={}".format(mail_id));
+                num_send_out += 1
 
     db.commit()
     logger.info("成功发出 {} 封邮件.".format(num_send_out))
@@ -257,11 +287,10 @@ def maintain_mails(smtp_password):
 
 def test_send_mail(argv):
     smtp_password = argv[0]
+    mail_id = argv[1]
 
     db, cursor = connect_database()
     logger.info("connect to database succeed.")
-
-    mail_id = 49
 
     cur_time = get_cur_time()
     send_mail(cursor, mail_id, smtp_password)
@@ -288,5 +317,12 @@ def main(argv):
 if __name__ == "__main__":
     reload(sys)
     sys.setdefaultencoding('utf-8')
-    # test_send_mail(sys.argv[1:])
-    main(sys.argv[1:])
+
+    assert(len(sys.argv) >= 2)
+    if (sys.argv[1] == "test"):
+        mail_id = sys.argv[3]
+        # for mail_id in range(30, 62):
+        smtp_password = sys.argv[2]
+        test_send_mail([smtp_password, mail_id])
+    else:
+        main(sys.argv[2:])
